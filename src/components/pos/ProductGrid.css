@@ -1,0 +1,102 @@
+.product-grid-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    height: 100%;
+    /* fills .pos-content which is now overflow:hidden */
+    overflow: hidden;
+    /* we scroll children individually */
+    min-height: 0;
+    /* needed for flex children to respect height */
+}
+
+.category-tabs {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+}
+
+.category-tabs::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari and Opera */
+}
+
+.category-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: var(--radius-lg);
+    background-color: var(--color-surface);
+    color: var(--color-text-muted);
+    font-weight: 500;
+    white-space: nowrap;
+    box-shadow: var(--shadow-sm);
+}
+
+.category-tab.active {
+    background-color: var(--color-primary);
+    color: white;
+    box-shadow: var(--shadow-md);
+}
+
+.cat-icon {
+    font-size: 1.25rem;
+}
+
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 16px;
+    flex: 1;
+    min-height: 0;
+    /* critical: lets flex child shrink and scroll */
+    overflow-y: auto;
+    /* only the product cards scroll */
+    align-content: start;
+    padding-bottom: 8px;
+}
+
+.product-card {
+    aspect-ratio: 1;
+    border-radius: var(--radius-md);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    text-align: left;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s, box-shadow 0.2s;
+    overflow: hidden;
+    position: relative;
+}
+
+.product-card:active {
+    transform: scale(0.95);
+}
+
+.product-info {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(8px);
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.product-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+    line-height: 1.2;
+}
+
+.product-price {
+    font-weight: 700;
+    color: var(--color-primary-dark);
+}

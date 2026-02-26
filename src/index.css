@@ -1,0 +1,126 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Brand Colors - Pink & White */
+  --color-primary: #ff6b9e;
+  /* Vibrant pink */
+  --color-primary-light: #ff9ec2;
+  --color-primary-dark: #d84b7a;
+
+  --color-background: #fff5f8;
+  /* Very light pink/white background */
+  --color-surface: #ffffff;
+  /* Pure white for cards */
+
+  --color-text: #2d1b22;
+  /* Dark pinkish-brown for text */
+  --color-text-muted: #8c737d;
+  /* Muted text */
+
+  --color-border: #fce1ea;
+  --color-success: #10b981;
+
+  /* Typography */
+  --font-family: 'Outfit', system-ui, sans-serif;
+
+  /* Spacing & Layout */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+
+  --shadow-sm: 0 4px 6px -1px rgba(255, 107, 158, 0.05);
+  --shadow-md: 0 10px 15px -3px rgba(255, 107, 158, 0.1);
+  --shadow-lg: 0 20px 25px -5px rgba(255, 107, 158, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  /* Remove tap highlight on iPad */
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--color-background);
+  color: var(--color-text);
+  min-height: 100vh;
+  min-height: 100dvh;
+  /* For mobile safari */
+  overflow: hidden;
+  /* Prevent body scrolling, handle scroll in containers */
+}
+
+#root {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+button {
+  font-family: var(--font-family);
+  border: none;
+  background: none;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+/* Base Utility Classes */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 1.1rem;
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary:active {
+  background-color: var(--color-primary-dark);
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  border-radius: 50%;
+  background-color: var(--color-surface);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Animations */
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
