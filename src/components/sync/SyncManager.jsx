@@ -1,103 +1,149 @@
 import { useState, useEffect } from 'react';
-import { CloudUpload, RefreshCw } from 'lucide-react';
-import { getUnsyncedSales, markSalesAsSynced } from '../../db/indexedDB';
+import { CloudUpload, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import {
+    getAllSales, getProducts, getCategories,
+    getExpenses, getZReports, getOrders,
+    clearAllSales, clearAllExpenses, clearAllZReports, clearAllOrders
+} from '../../db/indexedDB';
 import './SyncManager.css';
 
-const GOOGLE_SCRIPT_URL = 'VOTRE_LIEN_GOOGLE_APP_SCRIPT_ICI';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz9rk-6tmCsEN_QhbhBF25uRG5XKanS6vqcLBmcE1NVlEKSsEFCpVfDdY_3o6XmWrCK/exec';
 
 export default function SyncManager({ isOnline }) {
-    const [unsyncedCount, setUnsyncedCount] = useState(0);
+    const [pendingCount, setPendingCount] = useState(0);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [syncResult, setSyncResult] = useState(null); // { success, message }
 
-    const checkUnsynced = async () => {
+    const countPending = async () => {
         try {
-            const sales = await getUnsyncedSales();
-            setUnsyncedCount(sales.length);
+            const [sales, depenses, clotures, commandes] = await Promise.all([
+                getAllSales(),
+                getExpenses(),
+                getZReports(),
+                getOrders()
+            ]);
+            setPendingCount(sales.length + depenses.length + clotures.length + commandes.length);
         } catch (err) {
-            console.error('Failed to get unsynced sales', err);
+            console.error('Erreur comptage données', err);
         }
     };
 
     useEffect(() => {
-        checkUnsynced();
-        window.addEventListener('saleAdded', checkUnsynced);
-        return () => window.removeEventListener('saleAdded', checkUnsynced);
+        countPending();
+        const refresh = () => countPending();
+        window.addEventListener('saleAdded', refresh);
+        window.addEventListener('catalogUpdated', refresh);
+        return () => {
+            window.removeEventListener('saleAdded', refresh);
+            window.removeEventListener('catalogUpdated', refresh);
+        };
     }, []);
 
     const handleSync = async () => {
         if (!isOnline) {
-            alert("Vous êtes hors-ligne. Veuillez vous connecter à Internet.");
+            alert('Vous êtes hors-ligne. Connectez-vous à Internet pour synchroniser.');
+            return;
+        }
+        if (pendingCount === 0) {
+            alert('Aucune donnée à téléverser.');
             return;
         }
 
-        if (unsyncedCount === 0) return;
+        const confirmed = window.confirm(
+            `Téléverser ${pendingCount} enregistrement(s) vers Google Sheets ?\n\n` +
+            `⚠️ Après l'envoi réussi, les données locales seront supprimées de l'appareil pour libérer de l'espace.`
+        );
+        if (!confirmed) return;
 
         setIsSyncing(true);
+        setSyncResult(null);
+
         try {
-            const sales = await getUnsyncedSales();
+            const [ventes, products, categories, depenses, clotures, commandes] = await Promise.all([
+                getAllSales(), getProducts(), getCategories(),
+                getExpenses(), getZReports(), getOrders()
+            ]);
 
-            if (sales.length === 0) { setIsSyncing(false); return; }
+            const catMap = {};
+            categories.forEach(c => { catMap[c.id] = c.name; });
+            const catalogue = products.map(p => ({
+                ...p, categoryName: catMap[p.categoryId] || p.categoryId
+            }));
 
-            if (GOOGLE_SCRIPT_URL === 'VOTRE_LIEN_GOOGLE_APP_SCRIPT_ICI') {
-                setTimeout(async () => {
-                    console.log('Simulation: Ventes envoyées =', sales);
-                    const ids = sales.map(s => s.id);
-                    await markSalesAsSynced(ids);
-                    setUnsyncedCount(0);
-                    setIsSyncing(false);
-                    alert('Succès ! (Mode Simulation) Les ventes ont été marquées comme synchronisées.');
-                }, 1500);
-                return;
+            const payload = { ventes, catalogue, depenses, clotures, commandes };
+
+            const blob = new Blob([JSON.stringify(payload)], { type: 'text/plain' });
+
+            // sendBeacon : conçu pour envoyer des données sans blocage CORS/SW
+            // Retourne true si les données sont envoyées avec succès
+            let sent = false;
+            if (navigator.sendBeacon) {
+                sent = navigator.sendBeacon(GOOGLE_SCRIPT_URL, blob);
             }
 
-            // Vraie requête (décommentée dans le futur)
-            /*
-            const response = await fetch(GOOGLE_SCRIPT_URL, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ sales })
-            });
-      
-            if (!response.ok) throw new Error('Network response was not ok');
-      
-            const ids = sales.map(s => s.id);
-            await markSalesAsSynced(ids);
-            setUnsyncedCount(0);
-            alert('Toutes les ventes ont été synchronisées vers Google Sheets !');
-            */
+            // Fallback : XMLHttpRequest synchrone si sendBeacon non disponible
+            if (!sent) {
+                await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', GOOGLE_SCRIPT_URL, true);
+                    xhr.setRequestHeader('Content-Type', 'text/plain');
+                    xhr.onload = resolve;
+                    xhr.onerror = () => reject(new Error('Erreur réseau XHR'));
+                    xhr.send(JSON.stringify(payload));
+                });
+            }
+
+            // Succès : on vide les données locales
+            await Promise.all([
+                clearAllSales(), clearAllExpenses(),
+                clearAllZReports(), clearAllOrders()
+            ]);
+            window.dispatchEvent(new Event('catalogUpdated'));
+            setPendingCount(0);
+            setSyncResult({ success: true, message: 'Téléversement réussi ! Données locales supprimées.' });
+
         } catch (err) {
-            console.error('Erreur de synchronisation:', err);
-            alert("Une erreur s'est produite lors de la synchronisation.");
+            console.error('Erreur synchronisation:', err);
+            setSyncResult({ success: false, message: `Erreur : ${err.message}` });
         } finally {
-            if (GOOGLE_SCRIPT_URL !== 'VOTRE_LIEN_GOOGLE_APP_SCRIPT_ICI') {
-                setIsSyncing(false);
-            }
+            setIsSyncing(false);
         }
     };
 
-    if (unsyncedCount === 0) {
-        return (
-            <div className="sync-box success">
-                <span className="sync-icon"><CloudUpload size={16} /></span>
-                <span className="sync-text">À jour</span>
-            </div>
-        );
-    }
+    const hasPending = pendingCount > 0;
 
     return (
-        <button
-            className={`sync-box warning ${isSyncing ? 'syncing' : ''}`}
-            onClick={handleSync}
-            disabled={isSyncing || !isOnline}
-        >
-            <span className="sync-icon">
-                {isSyncing ? <RefreshCw size={16} className="spin" /> : <CloudUpload size={16} />}
-            </span>
-            <span className="sync-text">
-                {unsyncedCount} {unsyncedCount > 1 ? 'ventes non envoyées' : 'vente non envoyée'}
-            </span>
-        </button>
+        <div className="sync-wrapper">
+            {syncResult && (
+                <div className={`sync-result-toast ${syncResult.success ? 'toast-success' : 'toast-error'}`}>
+                    {syncResult.success ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+                    {syncResult.message}
+                </div>
+            )}
+            <button
+                className={`sync-btn ${hasPending ? 'sync-btn--pending' : 'sync-btn--idle'} ${isSyncing ? 'sync-btn--loading' : ''}`}
+                onClick={handleSync}
+                disabled={isSyncing}
+                title={!isOnline ? 'Hors-ligne — connexion requise' : hasPending ? `${pendingCount} enregistrement(s) à envoyer` : 'Tout est synchronisé'}
+            >
+                <span className="sync-btn__icon">
+                    {isSyncing
+                        ? <RefreshCw size={18} className="spin" />
+                        : hasPending
+                            ? <CloudUpload size={18} />
+                            : <CheckCircle size={18} />
+                    }
+                </span>
+                <span className="sync-btn__label">
+                    {isSyncing
+                        ? 'Envoi...'
+                        : hasPending
+                            ? `Téléverser (${pendingCount})`
+                            : 'Synchronisé'
+                    }
+                </span>
+                {!isOnline && <span className="sync-btn__offline">Hors-ligne</span>}
+            </button>
+        </div>
     );
 }

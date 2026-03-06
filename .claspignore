@@ -1,0 +1,15 @@
+node_modules/**
+dist/**
+public/**
+src/**
+.git/**
+package.json
+package-lock.json
+*.md
+*.js
+!Code.gs
+*.css
+*.jsx
+*.html
+eslint.config.js
+vite.config.js

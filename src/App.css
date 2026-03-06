@@ -9,6 +9,7 @@
 
 .pos-main {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -77,6 +78,7 @@
   display: flex;
   flex-direction: column;
   z-index: 5;
+  overflow: hidden;
 }
 
 @media (max-width: 900px) {
@@ -93,5 +95,29 @@
 
   .pos-content {
     padding: 12px;
+  }
+
+  .pos-header {
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .brand h1 {
+    font-size: 1.1rem;
+  }
+
+  .status-badge {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand h1 {
+    font-size: 0.95rem;
+  }
+
+  .pos-header {
+    padding: 0 8px;
   }
 }

@@ -66,7 +66,7 @@ export default function ProductGrid({ onAddToCart }) {
                         >
                             <div className="product-info">
                                 <span className="product-name">{product.name}</span>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                                     <span className="product-price">{product.price.toFixed(2)} €</span>
                                     {product.stock !== undefined && (
                                         <span style={{ fontSize: '0.8rem', color: isOutOfStock ? '#ef4444' : '#6b7280', fontWeight: 600 }}>

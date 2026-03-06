@@ -357,3 +357,46 @@ export const deleteOrder = async (id) => {
         request.onerror = e => reject(e.target.error);
     });
 };
+
+// --- CLEAR ALL (vidage après synchro Google Sheets) ---
+// Note: le catalogue (products + categories) est conservé intentionnellement
+
+export const clearAllSales = async () => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_SALES], 'readwrite');
+        const request = transaction.objectStore(STORE_SALES).clear();
+        request.onsuccess = () => resolve(true);
+        request.onerror = e => reject(e.target.error);
+    });
+};
+
+export const clearAllExpenses = async () => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_EXPENSES], 'readwrite');
+        const request = transaction.objectStore(STORE_EXPENSES).clear();
+        request.onsuccess = () => resolve(true);
+        request.onerror = e => reject(e.target.error);
+    });
+};
+
+export const clearAllZReports = async () => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_Z_REPORTS], 'readwrite');
+        const request = transaction.objectStore(STORE_Z_REPORTS).clear();
+        request.onsuccess = () => resolve(true);
+        request.onerror = e => reject(e.target.error);
+    });
+};
+
+export const clearAllOrders = async () => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_ORDERS], 'readwrite');
+        const request = transaction.objectStore(STORE_ORDERS).clear();
+        request.onsuccess = () => resolve(true);
+        request.onerror = e => reject(e.target.error);
+    });
+};

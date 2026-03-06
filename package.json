@@ -1,7 +1,7 @@
 {
   "name": "bakery-pos",
   "private": true,
-  "homepage": "https://VOTRE_USERNAME.github.io/les-delices-de-laura",
+  "homepage": "https://yanis27c2.github.io/lesdelicesdelaura",
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist",
+    "deploy:gs": "clasp push && clasp deploy --deploymentId AKfycbz9rk-6tmCsEN_QhbhBF25uRG5XKanS6vqcLBmcE1NVlEKSsEFCpVfDdY_3o6XmWrCK -d \"Auto deploy\""
   },
   "dependencies": {
     "lucide-react": "^0.575.0",

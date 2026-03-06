@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  base: '/les-delices-de-laura/',
+  base: '/lesdelicesdelaura/',
   plugins: [
     react(),
     VitePWA({
@@ -16,16 +16,23 @@ export default defineConfig({
         theme_color: '#f9a8d4',
         background_color: '#fff0f6',
         display: 'standalone',
-        start_url: '/les-delices-de-laura/',
-        scope: '/les-delices-de-laura/',
+        start_url: '/lesdelicesdelaura/',
+        scope: '/lesdelicesdelaura/',
         icons: [
-          { src: '/les-delices-de-laura/logo.png', sizes: '192x192', type: 'image/png' },
-          { src: '/les-delices-de-laura/logo.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+          { src: '/lesdelicesdelaura/logo.png', sizes: '192x192', type: 'image/png' },
+          { src: '/lesdelicesdelaura/logo.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
         ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        cleanupOutdatedCaches: true
+        cleanupOutdatedCaches: true,
+        // Ne JAMAIS intercepter les requêtes vers Google Apps Script
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.hostname.includes('script.google.com'),
+            handler: 'NetworkOnly',
+          }
+        ]
       }
     })
   ],

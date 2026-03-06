@@ -1,3 +1,5 @@
+@import './Modal.css';
+
 .admin-container {
     padding: 24px;
     display: flex;
@@ -96,4 +98,3 @@
     color: #ef4444;
     background-color: #fee2e2;
 }
-@import './Modal.css';

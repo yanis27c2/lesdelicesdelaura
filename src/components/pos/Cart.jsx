@@ -220,7 +220,7 @@ export default function Cart({ items, updateQuantity, clearCart, onCheckout }) {
                     </div>
                 ) : (
                     items.map(item => (
-                        <div key={item.id} className="cart-item animate-slide-up">
+                        <div key={item.id} className="cart-item">
                             <div className="item-details">
                                 <span className="item-name">{item.name}</span>
                                 <span className="item-price">{(item.price * item.quantity).toFixed(2)} €</span>

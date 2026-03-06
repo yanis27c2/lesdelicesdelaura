@@ -3,18 +3,27 @@
     background-color: var(--color-surface);
     border-bottom: 2px solid var(--color-border);
     padding: 0 24px;
+    overflow-x: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.app-nav::-webkit-scrollbar {
+    display: none;
 }
 
 .nav-item {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 16px 24px;
+    padding: 16px 20px;
     font-weight: 600;
     color: var(--color-text-muted);
     border-bottom: 3px solid transparent;
     transition: all 0.2s ease;
     border-radius: 0;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .nav-item:hover {

@@ -3,11 +3,10 @@
     flex-direction: column;
     gap: 16px;
     height: 100%;
-    /* fills .pos-content which is now overflow:hidden */
     overflow: hidden;
-    /* we scroll children individually */
     min-height: 0;
-    /* needed for flex children to respect height */
+    min-width: 0;
+    width: 100%;
 }
 
 .category-tabs {
@@ -51,15 +50,35 @@
 
 .products-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 16px;
     flex: 1;
     min-height: 0;
-    /* critical: lets flex child shrink and scroll */
+    min-width: 0;
+    width: 100%;
     overflow-y: auto;
-    /* only the product cards scroll */
+    overflow-x: hidden;
     align-content: start;
-    padding-bottom: 8px;
+    padding: 4px 8px 8px 8px;
+    box-sizing: border-box;
+}
+
+/* Tablette (iPad portrait ~768px) */
+@media (max-width: 900px) {
+    .products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 12px;
+        padding: 4px 4px 8px 4px;
+    }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+    .products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        gap: 10px;
+        padding: 4px 2px 8px 2px;
+    }
 }
 
 .product-card {
@@ -68,12 +87,15 @@
     padding: 16px;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
-    text-align: left;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
     box-shadow: var(--shadow-sm);
     transition: transform 0.2s, box-shadow 0.2s;
     overflow: hidden;
     position: relative;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .product-card:active {
@@ -88,6 +110,8 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    align-items: center;
+    width: 100%;
 }
 
 .product-name {
