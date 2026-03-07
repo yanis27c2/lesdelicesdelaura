@@ -394,13 +394,15 @@ function DevisDrawer({ open, onClose, onSave, editData = null }) {
 
 // ─────────── DEVIS CARD ───────────
 function DevisCard({ devis, onStatusChange, onDelete, onConvertToOrder, onEdit }) {
-    const cfg = STATUS_CONFIG[devis.status] || STATUS_CONFIG.brouillon;
+    // Defensive: treat missing/undefined status as 'brouillon'
+    const status = devis.status || 'brouillon';
+    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.brouillon;
     const days = daysUntil(devis.validityDate);
-    const isExpired = days !== null && days < 0 && devis.status !== 'refuse' && devis.status !== 'converti';
-    const isUrgent = days !== null && days >= 0 && days <= 3 && devis.status === 'envoye';
+    const isExpired = days !== null && days < 0 && status !== 'refuse' && status !== 'converti';
+    const isUrgent = days !== null && days >= 0 && days <= 3 && status === 'envoye';
 
     return (
-        <div className={`devis-card ${devis.status} ${isExpired ? 'expired' : ''} ${isUrgent ? 'urgent-card' : ''}`}>
+        <div className={`devis-card ${status} ${isExpired ? 'expired' : ''} ${isUrgent ? 'urgent-card' : ''}`}>
             {/* Card Header */}
             <div className="devis-card-header">
                 <div className="devis-card-left">
@@ -413,7 +415,7 @@ function DevisCard({ devis, onStatusChange, onDelete, onConvertToOrder, onEdit }
                         {cfg.icon} {cfg.label}
                     </div>
                     <div className="devis-card-actions-icons">
-                        {['brouillon', 'envoye'].includes(devis.status) && (
+                        {['brouillon', 'envoye'].includes(status) && (
                             <button className="btn-icon edit" onClick={() => onEdit(devis)} title="Modifier"><Copy size={15} /></button>
                         )}
                         <button className="btn-icon delete" onClick={() => onDelete(devis.id)} title="Supprimer"><Trash2 size={15} /></button>
@@ -447,12 +449,12 @@ function DevisCard({ devis, onStatusChange, onDelete, onConvertToOrder, onEdit }
 
             {/* Action Buttons */}
             <div className="devis-actions">
-                {devis.status === 'brouillon' && (
+                {status === 'brouillon' && (
                     <button className="devis-btn envoye" onClick={() => onStatusChange(devis, 'envoye')}>
                         <Send size={14} /> Marquer Envoyé
                     </button>
                 )}
-                {devis.status === 'envoye' && (
+                {status === 'envoye' && (
                     <>
                         <button className="devis-btn accepte" onClick={() => onStatusChange(devis, 'accepte')}>
                             <CheckCircle2 size={14} /> Accepté
@@ -462,14 +464,14 @@ function DevisCard({ devis, onStatusChange, onDelete, onConvertToOrder, onEdit }
                         </button>
                     </>
                 )}
-                {devis.status === 'accepte' && (
+                {status === 'accepte' && (
                     <button className="devis-btn convert" onClick={() => onConvertToOrder(devis)}>
                         <ShoppingBag size={14} /> Convertir en commande <ArrowRight size={14} />
                     </button>
                 )}
-                {devis.status === 'refuse' && <span className="devis-terminal-badge refuse">Devis refusé</span>}
-                {devis.status === 'expire' && <span className="devis-terminal-badge expire">Devis expiré</span>}
-                {devis.status === 'converti' && <span className="devis-terminal-badge converti">🎯 Converti en commande</span>}
+                {status === 'refuse' && <span className="devis-terminal-badge refuse">Devis refusé</span>}
+                {status === 'expire' && <span className="devis-terminal-badge expire">Devis expiré</span>}
+                {status === 'converti' && <span className="devis-terminal-badge converti">🎯 Converti en commande</span>}
             </div>
         </div>
     );
@@ -527,19 +529,35 @@ export default function Devis() {
 
     const load = async () => {
         const data = await getDevis();
-        // Mark expired
-        const updated = await Promise.all(data.map(async d => {
-            if (['brouillon', 'envoye'].includes(d.status) && d.validityDate) {
-                const days = daysUntil(d.validityDate);
+        // Auto-repair: fix any devis with missing status or missing numero
+        const repaired = await Promise.all(data.map(async d => {
+            let updated = { ...d };
+            let needsSave = false;
+
+            // Fix missing status
+            if (!d.status) {
+                updated.status = 'brouillon';
+                needsSave = true;
+            }
+            // Fix missing numero
+            if (!d.numero && d.id) {
+                updated.numero = formatNumero(d.id, d.year || new Date().getFullYear());
+                updated.year = d.year || new Date().getFullYear();
+                needsSave = true;
+            }
+            // Auto-expire
+            if (['brouillon', 'envoye'].includes(updated.status) && updated.validityDate) {
+                const days = daysUntil(updated.validityDate);
                 if (days < 0) {
-                    const expired = { ...d, status: 'expire' };
-                    await saveDevis(expired);
-                    return expired;
+                    updated.status = 'expire';
+                    needsSave = true;
                 }
             }
-            return d;
+
+            if (needsSave) await saveDevis(updated);
+            return updated;
         }));
-        setDevisList(updated.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+        setDevisList(repaired.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)));
     };
 
     useEffect(() => { load(); }, []);
@@ -602,7 +620,11 @@ export default function Devis() {
     };
 
     const filtered = filterStatus === 'all' ? devisList : devisList.filter(d => d.status === filterStatus);
-    const counts = devisList.reduce((acc, d) => { acc[d.status] = (acc[d.status] || 0) + 1; return acc; }, {});
+    const counts = devisList.reduce((acc, d) => {
+        const s = d.status || 'brouillon';
+        acc[s] = (acc[s] || 0) + 1;
+        return acc;
+    }, {});
 
     // Alert: devis envoyés depuis > 7 jours sans réponse
     const staleSent = devisList.filter(d => {
