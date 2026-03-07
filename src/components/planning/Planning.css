@@ -614,33 +614,33 @@
     border-radius: 24px;
     padding: 32px;
     box-shadow: 0 15px 40px rgba(255, 107, 157, 0.05);
-    min-height: 550px;
+    min-height: 800px;
 }
 
 .planning-calendar-main {
-    flex: 3;
+    flex: 4;
 }
 
 .pcal-nav-redesign {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 24px;
-    margin-bottom: 32px;
+    gap: 32px;
+    margin-bottom: 40px;
 }
 
 .pcal-title-redesign {
-    font-size: 1.5rem;
+    font-size: 2rem;
     font-weight: 800;
     color: #1a1a1a;
-    min-width: 220px;
+    min-width: 300px;
     text-align: center;
     letter-spacing: -0.02em;
 }
 
 .pcal-nav-btn.circle {
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     border: 1px solid #f1f1f1;
     background: #fff;
@@ -663,27 +663,27 @@
 .pcal-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
+    gap: 8px;
 }
 
 .pcal-day-header {
     text-align: center;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     font-weight: 700;
     color: #c1c1c1;
     text-transform: uppercase;
-    padding-bottom: 16px;
+    padding-bottom: 20px;
     letter-spacing: 0.05em;
 }
 
 .pcal-cell-redesign {
-    aspect-ratio: 1.3 / 1;
+    aspect-ratio: 1.1 / 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    border-radius: 16px;
+    border-radius: 20px;
     position: relative;
     transition: all 0.2s ease;
 }
@@ -693,12 +693,12 @@
 }
 
 .pcal-day-num {
-    font-weight: 500;
-    font-size: 1.1rem;
+    font-weight: 600;
+    font-size: 1.4rem;
     color: #2d3748;
     z-index: 2;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -727,13 +727,13 @@
 
 .pcal-order-token {
     position: absolute;
-    bottom: 8px;
+    bottom: 12px;
     background: rgba(99, 102, 241, 0.1);
     color: #6366f1;
-    font-size: 0.75rem;
+    font-size: 0.9rem;
     font-weight: 800;
-    width: 18px;
-    height: 18px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;

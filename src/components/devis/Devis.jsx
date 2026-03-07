@@ -35,7 +35,7 @@ const EMPTY_FORM = {
     validityDate: '', notes: ''
 };
 
-// ─────────── DEVIS DRAWER (PREMIUM ASSISTANT) ───────────
+// ─────────── DEVIS DRAWER (STANDARDIZED) ───────────
 function DevisDrawer({ open, onClose, onSave, editData = null }) {
     const [step, setStep] = useState(1);
     const [form, setForm] = useState(EMPTY_FORM);
@@ -99,23 +99,22 @@ function DevisDrawer({ open, onClose, onSave, editData = null }) {
     if (!open) return null;
 
     return (
-        <div className={`drawer-overlay ${open ? 'open' : ''}`} onClick={onClose}>
-            <div className="order-drawer open" onClick={e => e.stopPropagation()}>
-                <div className="drawer-header devis-drawer-header">
-                    <div className="drawer-header-left">
-                        <FileText size={24} color="var(--devis-primary)" />
-                        <div>
-                            <h2 className="drawer-title">{editData ? 'Modifier le devis' : 'Nouveau devis'}</h2>
-                            <span className="devis-header-sub">Créez une proposition premium en quelques clics</span>
-                        </div>
+        <>
+            <div className={`drawer-overlay ${open ? 'open' : ''}`} onClick={onClose} />
+            <div className={`order-drawer ${open ? 'open' : ''}`}>
+                <div className="drawer-header">
+                    <div className="drawer-title">
+                        <FileText size={20} color="var(--devis-primary)" />
+                        {editData ? 'Modifier le devis' : 'Nouveau devis'}
                     </div>
-                    <button className="close-btn" onClick={onClose}><X size={20} /></button>
+                    <button className="close-btn" onClick={onClose}><X size={22} /></button>
                 </div>
 
                 <div className="drawer-steps">
-                    {[{ n: 1, label: 'Client' }, { n: 2, label: 'Articles' }, { n: 3, label: 'Finalisation' }].map(s => (
-                        <div key={s.n} className={`step-item ${step === s.n ? 'active' : ''}`}>
-                            <div className="step-circle">{s.n}</div>
+                    {[{ n: 1, label: 'Client' }, { n: 2, label: 'Articles' }, { n: 3, label: 'Finaliser' }].map(s => (
+                        <div key={s.n} className={`step-item ${step === s.n ? 'active' : ''} ${step > s.n ? 'done' : ''}`}
+                            onClick={() => step > s.n && setStep(s.n)}>
+                            <div className="step-circle">{step > s.n ? '✓' : s.n}</div>
                             <span>{s.label}</span>
                         </div>
                     ))}
@@ -124,20 +123,22 @@ function DevisDrawer({ open, onClose, onSave, editData = null }) {
                 <div className="drawer-body">
                     {step === 1 && (
                         <div className="step-content">
+                            <p className="step-hint">Informations du client pour la proposition commerciale</p>
                             <div className="form-group">
-                                <label>Nom du client</label>
-                                <div className="input-icon-wrap" style={{ position: 'relative' }}>
-                                    <User size={18} className="input-icon" />
-                                    <input type="text" value={form.customerName} placeholder="Marie Laurent..." autoFocus
+                                <label>Nom du client *</label>
+                                <div className="input-icon-wrap">
+                                    <Search size={16} className="input-icon" />
+                                    <input type="text" value={form.customerName} placeholder="Rechercher ou saisir..." autoFocus
                                         onChange={e => {
                                             setForm(f => ({ ...f, customerName: e.target.value }));
                                             setCustomerSearch(e.target.value);
                                             setShowSuggestions(true);
-                                        }} />
+                                        }}
+                                        onBlur={() => setTimeout(() => setShowSuggestions(false), 150)} />
                                     {showSuggestions && customerSearch.length > 1 && (
                                         <div className="suggestions-dropdown">
                                             {customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase())).slice(0, 5).map(c => (
-                                                <div key={c.id} className="suggestion-item" onClick={() => {
+                                                <div key={c.id} className="suggestion-item" onMouseDown={() => {
                                                     setForm(f => ({ ...f, customerName: c.name, customerPhone: c.phone || '', customerEmail: c.email || '' }));
                                                     setShowSuggestions(false);
                                                 }}>
@@ -163,43 +164,57 @@ function DevisDrawer({ open, onClose, onSave, editData = null }) {
 
                     {step === 2 && (
                         <div className="step-content">
-                            <div className="products-selection-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px' }}>
-                                <div>
-                                    <div className="cat-filter-row" style={{ display: 'flex', gap: '8px', marginBottom: '16px', overflowX: 'auto' }}>
+                            <div className="products-selection-layout">
+                                <div className="selection-main">
+                                    <div className="cat-filter-row">
                                         <button className={`cat-chip ${activeCat === 'all' ? 'active' : ''}`} onClick={() => setActiveCat('all')}>Tous</button>
                                         {categories.map(c => (
                                             <button key={c.id} className={`cat-chip ${activeCat === c.id ? 'active' : ''}`} onClick={() => setActiveCat(c.id)}>{c.name}</button>
                                         ))}
                                     </div>
-                                    <div className="products-picker-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '12px' }}>
-                                        {products.filter(p => activeCat === 'all' || p.categoryId === activeCat).map(p => (
-                                            <div key={p.id} className="product-chip" style={{ background: p.color + '20', border: '1px solid ' + p.color + '40' }} onClick={() => addProduct(p)}>
-                                                <strong>{p.name}</strong>
-                                                <span>{p.price.toFixed(2)}€</span>
-                                            </div>
-                                        ))}
+                                    <div className="products-picker-grid">
+                                        {products.filter(p => {
+                                            const matchCat = activeCat === 'all' || p.categoryId === activeCat;
+                                            const matchSearch = p.name.toLowerCase().includes(productSearch.toLowerCase());
+                                            return matchCat && matchSearch;
+                                        }).map(p => {
+                                            const inCart = form.items.find(i => i.id === p.id);
+                                            return (
+                                                <div key={p.id} className={`product-chip ${inCart ? 'selected' : ''}`}
+                                                    style={{ background: p.color + '15', border: '2px solid ' + (inCart ? 'var(--devis-primary)' : 'transparent') }}
+                                                    onClick={() => addProduct(p)}>
+                                                    <strong>{p.name}</strong>
+                                                    <span>{p.price.toFixed(2)}€</span>
+                                                    {inCart && <span className="chip-qty-badge">{inCart.qty}</span>}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
-                                <div className="cart-preview" style={{ background: '#fff', border: '1px solid var(--devis-border)', borderRadius: '20px', padding: '20px' }}>
-                                    <h4 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}><ShoppingBag size={18} /> Sélection ({form.items.length})</h4>
-                                    <div className="cart-items-list" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+                                <div className="cart-preview">
+                                    <h4><ShoppingBag size={18} /> Sélection ({form.items.length})</h4>
+                                    <div className="cart-items-list">
                                         {form.items.map(item => (
-                                            <div key={item.id} className="cart-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>{item.name}</div>
-                                                    <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{(item.price * item.qty).toFixed(2)}€</div>
+                                            <div key={item.id} className="cart-item">
+                                                <div className="item-info">
+                                                    <div className="item-name">{item.name}</div>
+                                                    <div className="item-price">{(item.price * item.qty).toFixed(2)}€</div>
                                                 </div>
-                                                <div className="qty-controls" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                    <button onClick={() => updateQty(item.id, -1)} style={{ background: '#f1f5f9', border: 'none', width: '24px', height: '24px', borderRadius: '6px' }}><Minus size={12} /></button>
-                                                    <span style={{ fontWeight: '800' }}>{item.qty}</span>
-                                                    <button onClick={() => updateQty(item.id, 1)} style={{ background: '#f1f5f9', border: 'none', width: '24px', height: '24px', borderRadius: '6px' }}><Plus size={12} /></button>
+                                                <div className="qty-controls">
+                                                    <button className="qty-btn" onClick={() => updateQty(item.id, -1)}><Minus size={12} /></button>
+                                                    <span className="qty-val">{item.qty}</span>
+                                                    <button className="qty-btn" onClick={() => updateQty(item.id, 1)}><Plus size={12} /></button>
                                                 </div>
                                             </div>
                                         ))}
+                                        {form.items.length === 0 && <p className="empty-hint">Aucun article sélectionné</p>}
                                     </div>
-                                    <div style={{ marginTop: '20px', borderTop: '1px dashed #e2e8f0', paddingTop: '16px', fontWeight: '800', textAlign: 'right' }}>
-                                        {catalogTotal.toFixed(2)} €
-                                    </div>
+                                    {form.items.length > 0 && (
+                                        <div className="cart-total-mini">
+                                            Sous-total: <strong>{catalogTotal.toFixed(2)} €</strong>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -207,8 +222,8 @@ function DevisDrawer({ open, onClose, onSave, editData = null }) {
 
                     {step === 3 && (
                         <div className="step-content">
-                            <div className="final-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
-                                <div className="final-left">
+                            <div className="finalization-layout">
+                                <div className="final-form">
                                     <div className="form-group">
                                         <label>Date de validité</label>
                                         <input type="date" value={form.validityDate} onChange={e => setForm(f => ({ ...f, validityDate: e.target.value }))} />
@@ -228,28 +243,22 @@ function DevisDrawer({ open, onClose, onSave, editData = null }) {
                                         <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Notes..." rows={3} />
                                     </div>
                                 </div>
-                                <div className="final-right">
-                                    <div className="live-preview" style={{ background: 'var(--devis-slate-soft)', padding: '24px', borderRadius: '24px', border: '2px dashed #cbd5e1' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                                            <strong style={{ fontSize: '1.2rem', color: 'var(--devis-slate)' }}>Aperçu du Devis</strong>
-                                            <Eye size={18} color="#94a3b8" />
+                                <div className="live-preview">
+                                    <div className="preview-paper">
+                                        <div className="preview-header">
+                                            <strong>{form.customerName || 'Nom Client'}</strong>
+                                            <small>Expire le {new Date(form.validityDate).toLocaleDateString('fr-FR')}</small>
                                         </div>
-                                        <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-                                            <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '12px' }}>
-                                                <strong>{form.customerName || 'Nom Client'}</strong>
-                                                <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Valable jusqu'au {new Date(form.validityDate).toLocaleDateString('fr-FR')}</div>
-                                            </div>
-                                            <div style={{ fontSize: '0.9rem', color: '#475569', minHeight: '60px' }}>
-                                                {form.items.length > 0 ? form.items.map(i => (
-                                                    <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                        <span>{i.qty}x {i.name}</span>
-                                                        <span>{(i.price * i.qty).toFixed(2)}€</span>
-                                                    </div>
-                                                )) : 'Aucun article sélectionné'}
-                                            </div>
-                                            <div style={{ marginTop: '16px', borderTop: '2px solid var(--devis-slate)', paddingTop: '8px', textAlign: 'right', fontSize: '1.1rem', fontWeight: '800' }}>
-                                                Total: {effectiveTotal.toFixed(2)} €
-                                            </div>
+                                        <div className="preview-items">
+                                            {form.items.map(i => (
+                                                <div key={i.id} className="preview-row">
+                                                    <span>{i.qty}x {i.name}</span>
+                                                    <span>{(i.price * i.qty).toFixed(2)}€</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="preview-total">
+                                            Total: {effectiveTotal.toFixed(2)} €
                                         </div>
                                     </div>
                                 </div>
@@ -258,7 +267,7 @@ function DevisDrawer({ open, onClose, onSave, editData = null }) {
                     )}
                 </div>
 
-                <div className="drawer-footer" style={{ padding: '24px 32px', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--devis-border)' }}>
+                <div className="drawer-footer">
                     <button className="devis-btn" onClick={() => step > 1 ? setStep(s => s - 1) : onClose()}>
                         {step === 1 ? 'Annuler' : 'Retour'}
                     </button>
@@ -268,12 +277,12 @@ function DevisDrawer({ open, onClose, onSave, editData = null }) {
                         </button>
                     ) : (
                         <button className="devis-new-btn" onClick={handleSubmit}>
-                            <FileCheck size={18} /> {editData ? 'Mettre à jour' : 'Confirmer le Devis'}
+                            <FileCheck size={18} /> {editData ? 'Enregistrer' : 'Générer le Devis'}
                         </button>
                     )}
                 </div>
             </div>
-        </div>
+        </>
     );
 }
 
