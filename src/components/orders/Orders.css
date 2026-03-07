@@ -408,32 +408,52 @@
     font-size: 0.9rem;
 }
 
-/* ─── View Toggle ─── */
+/* ─── View Toggle (Premium Redesign) ─── */
 .view-toggle {
     display: flex;
+    background: #f8fafc;
+    padding: 6px;
+    border-radius: 20px;
+    border: 1px solid #f1f5f9;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
     gap: 4px;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    padding: 4px;
 }
 
 .toggle-btn {
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    color: var(--color-text-muted);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    padding: 8px 16px;
+    height: 44px;
+    border-radius: 14px;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-weight: 600;
+    font-size: 0.95rem;
+    gap: 10px;
+}
+
+.toggle-btn:hover:not(.active) {
+    color: #64748b;
+    background: rgba(0, 0, 0, 0.02);
 }
 
 .toggle-btn.active {
-    background: var(--color-primary);
-    color: white;
+    background: white;
+    color: #ff6b9d;
+    box-shadow: 0 10px 15px -3px rgba(255, 107, 158, 0.15), 0 4px 6px -4px rgba(255, 107, 158, 0.1);
+    transform: translateY(-1px);
+}
+
+.toggle-btn svg {
+    transition: transform 0.3s ease;
+}
+
+.toggle-btn.active svg {
+    transform: scale(1.1);
 }
 
 /* ─── Urgent Banner ─── */

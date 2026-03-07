@@ -730,8 +730,12 @@ export default function Orders() {
                 <h2><ClipboardList /> Commandes & Réservations</h2>
                 <div style={{ display: 'flex', gap: 12 }}>
                     <div className="view-toggle">
-                        <button className={`toggle-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}><List size={16} /></button>
-                        <button className={`toggle-btn ${viewMode === 'calendar' ? 'active' : ''}`} onClick={() => setViewMode('calendar')}><Calendar size={16} /></button>
+                        <button className={`toggle-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')} title="Vue Liste">
+                            <List size={20} />
+                        </button>
+                        <button className={`toggle-btn ${viewMode === 'calendar' ? 'active' : ''}`} onClick={() => setViewMode('calendar')} title="Vue Calendrier">
+                            <Calendar size={20} />
+                        </button>
                     </div>
                     <button className="btn-primary" onClick={() => openDrawer()} style={{ padding: '0.8rem 1.5rem', display: 'flex', gap: 8, alignItems: 'center' }}>
                         <Plus size={18} /> Nouvelle Commande

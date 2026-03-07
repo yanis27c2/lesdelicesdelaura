@@ -353,10 +353,10 @@ export default function Production() {
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <div className="view-toggle">
                         <button className={`toggle-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')} title="Vue Liste">
-                            <List size={18} /> Liste
+                            <List size={20} />
                         </button>
                         <button className={`toggle-btn ${viewMode === 'calendar' ? 'active' : ''}`} onClick={() => setViewMode('calendar')} title="Vue Calendrier">
-                            <Calendar size={18} /> Calendrier
+                            <Calendar size={20} />
                         </button>
                     </div>
                     <button className="plan-refresh-btn" onClick={load} title="Rafraîchir">
