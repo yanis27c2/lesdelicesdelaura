@@ -112,6 +112,30 @@ export default function SyncManager({ isOnline }) {
         }
     };
 
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownload = async () => {
+        if (!isOnline) {
+            showResult({ success: false, message: 'Hors-ligne — impossible de télécharger.' });
+            return;
+        }
+        setIsDownloading(true);
+        setSyncResult(null);
+        try {
+            const result = await syncFromCloud(saveOrder, saveDevis);
+            if (result.success) {
+                showResult({ success: true, message: `Cloud récupéré : +${result.commandes} commandes, +${result.devis} devis` });
+                window.dispatchEvent(new Event('catalogUpdated'));
+            } else {
+                showResult({ success: false, message: 'Erreur lors de la récupération cloud.' });
+            }
+        } catch (err) {
+            showResult({ success: false, message: `Erreur : ${err.message}` });
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     const hasPending = pendingCount > 0;
 
     return (
@@ -122,34 +146,50 @@ export default function SyncManager({ isOnline }) {
                     {syncResult.message}
                 </div>
             )}
-            <button
-                className={`sync-btn ${hasPending || !lastSync ? 'sync-btn--pending' : 'sync-btn--idle'} ${isSyncing ? 'sync-btn--loading' : ''}`}
-                onClick={handleSync}
-                disabled={isSyncing}
-                title={
-                    !isOnline ? 'Hors-ligne — connexion requise'
-                        : hasPending ? `${pendingCount} vente(s)/dépense(s) à envoyer`
-                            : lastSync ? `Dernier sync : ${lastSync}` : 'Cliquer pour synchroniser'
-                }
-            >
-                <span className="sync-btn__icon">
-                    {isSyncing
-                        ? <RefreshCw size={18} className="spin" />
-                        : hasPending
-                            ? <CloudUpload size={18} />
-                            : <CheckCircle size={18} />
+            <div className="sync-btn-group">
+                <button
+                    className={`sync-btn sync-btn-download ${isDownloading ? 'sync-btn--loading' : ''}`}
+                    onClick={handleDownload}
+                    disabled={isDownloading || !isOnline}
+                    title={!isOnline ? 'Hors-ligne' : 'Importer les commandes récentes du Cloud'}
+                >
+                    <span className="sync-btn__icon">
+                        {isDownloading ? <RefreshCw size={18} className="spin" /> : <CloudDownload size={18} />}
+                    </span>
+                    <span className="sync-btn__label">
+                        {isDownloading ? 'Import...' : 'Importer'}
+                    </span>
+                </button>
+
+                <button
+                    className={`sync-btn ${hasPending || !lastSync ? 'sync-btn--pending' : 'sync-btn--idle'} ${isSyncing ? 'sync-btn--loading' : ''}`}
+                    onClick={handleSync}
+                    disabled={isSyncing}
+                    title={
+                        !isOnline ? 'Hors-ligne — connexion requise'
+                            : hasPending ? `${pendingCount} vente(s)/dépense(s) à envoyer`
+                                : lastSync ? `Dernier sync : ${lastSync}` : 'Cliquer pour synchroniser'
                     }
-                </span>
-                <span className="sync-btn__label">
-                    {isSyncing
-                        ? 'Envoi...'
-                        : hasPending
-                            ? `Téléverser (${pendingCount})`
-                            : 'Synchronisé'
-                    }
-                </span>
-                {!isOnline && <span className="sync-btn__offline">Hors-ligne</span>}
-            </button>
+                >
+                    <span className="sync-btn__icon">
+                        {isSyncing
+                            ? <RefreshCw size={18} className="spin" />
+                            : hasPending
+                                ? <CloudUpload size={18} />
+                                : <CheckCircle size={18} />
+                        }
+                    </span>
+                    <span className="sync-btn__label">
+                        {isSyncing
+                            ? 'Envoi...'
+                            : hasPending
+                                ? `Téléverser (${pendingCount})`
+                                : 'Synchronisé'
+                        }
+                    </span>
+                    {!isOnline && <span className="sync-btn__offline">Hors-ligne</span>}
+                </button>
+            </div>
             {lastSync && !isSyncing && (
                 <div className="sync-last-time">Dernier sync : {lastSync}</div>
             )}
