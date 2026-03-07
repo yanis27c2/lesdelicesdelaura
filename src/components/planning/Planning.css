@@ -605,162 +605,38 @@
     transform: scale(1.1);
 }
 
-/* ── PRODUCTION REDESIGN (PINK THEME) ── */
+/* ─────────────────────────────────────────────────────────────
+   PRODUCTION CALENDAR — STANDARD SYNC
+   Reuse base classes from Orders.css (.calendar-wrapper, .cal-grid, etc.)
+   ───────────────────────────────────────────────────────────── */
 
-.planning-calendar-wrapper {
-    display: flex;
-    gap: 32px;
-    background: #fff;
-    border-radius: 24px;
-    padding: 32px;
-    box-shadow: 0 15px 40px rgba(255, 107, 157, 0.05);
-    min-height: 800px;
-}
-
-.planning-calendar-main {
-    flex: 4;
-}
-
-.pcal-nav-redesign {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 32px;
-    margin-bottom: 40px;
-}
-
-.pcal-title-redesign {
-    font-size: 2rem;
-    font-weight: 800;
-    color: #1a1a1a;
-    min-width: 300px;
-    text-align: center;
-    letter-spacing: -0.02em;
-}
-
-.pcal-nav-btn.circle {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    border: 1px solid #f1f1f1;
-    background: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: #333;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-}
-
-.pcal-nav-btn.circle:hover {
-    background: #fff5f7;
-    border-color: #ff6b9d;
-    color: #ff6b9d;
-    transform: scale(1.05);
-}
-
-.pcal-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
-}
-
-.pcal-day-header {
-    text-align: center;
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: #c1c1c1;
-    text-transform: uppercase;
-    padding-bottom: 20px;
-    letter-spacing: 0.05em;
-}
-
-.pcal-cell-redesign {
-    aspect-ratio: 1.1 / 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    border-radius: 20px;
-    position: relative;
-    transition: all 0.2s ease;
-}
-
-.pcal-cell-redesign:hover:not(.empty) {
-    background: #fffafb;
-}
-
-.pcal-day-num {
-    font-weight: 600;
-    font-size: 1.4rem;
-    color: #2d3748;
-    z-index: 2;
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.pcal-cell-redesign.today .pcal-day-num {
-    background: #ff6b9d;
-    color: #fff;
-    border-radius: 50%;
-}
-
-.pcal-cell-redesign.selected {
-    background: #ff6b9d !important;
-    border-radius: 12px;
-}
-
-.pcal-cell-redesign.selected .pcal-day-num {
-    color: #fff;
-    background: transparent;
-}
-
-.pcal-cell-redesign.has-orders:not(.selected):not(.today) {
-    background: #f0f4ff;
-    border-radius: 12px;
-}
-
-.pcal-order-token {
-    position: absolute;
-    bottom: 12px;
-    background: rgba(99, 102, 241, 0.1);
+/* Production specific tokens inside standard calendar cells */
+.cal-order-token {
+    background: #6366f122;
     color: #6366f1;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     font-weight: 800;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
+    margin-top: 4px;
 }
 
-.pcal-cell-redesign.selected .pcal-order-token {
+.cal-cell.selected .cal-order-token {
     background: rgba(255, 255, 255, 0.4);
-    color: #fff;
+    color: white;
 }
 
-.pcal-legend-redesign {
-    display: flex;
-    justify-content: center;
-    gap: 32px;
-    margin-top: 32px;
-    font-size: 0.9rem;
-    color: #718096;
-    font-weight: 500;
-}
-
+/* Dots for legend / quick view */
 .pcal-dot {
     display: inline-block;
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    margin-right: 8px;
+    margin-right: 6px;
 }
 
 .pcal-dot.green {
@@ -771,97 +647,134 @@
     background: #f59e0b;
 }
 
-/* ── DETAIL PANEL REDESIGN ── */
-
-.pcal-detail-panel-redesign {
-    flex: 2.2;
-    background: #fffafb;
-    border-left: 1px solid #f9f0f2;
-    padding-left: 32px;
-    display: flex;
-    flex-direction: column;
-}
-
-.pcal-detail-header-redesign {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 24px;
-    padding-bottom: 8px;
-}
-
-.pcal-detail-header-redesign h3 {
-    font-size: 1.25rem;
-    font-weight: 800;
-    color: #1a1a1a;
-}
-
-.pcal-add-btn {
-    background: #ff6b9d;
-    color: #fff;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 99px;
-    font-weight: 700;
-    font-size: 0.9rem;
-    cursor: pointer;
-    box-shadow: 0 5px 15px rgba(255, 107, 157, 0.3);
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.pcal-add-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(255, 107, 157, 0.4);
-}
-
-.pcal-detail-list-redesign {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    max-height: calc(100vh - 350px);
-    overflow-y: auto;
-    padding-right: 8px;
-    scrollbar-width: thin;
-    scrollbar-color: #ffcbdc transparent;
-}
-
-/* ── PRODUCTION CARD (SIDE PANEL) ── */
-
+/* Production Card (inside detail panel) - Standard style */
 .production-detail-card {
-    background: #fff;
-    border-radius: 20px;
-    padding: 20px;
-    border: 1px solid #fceef2;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.02);
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .pcard-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 16px;
+    align-items: center;
+    margin-bottom: 10px;
 }
 
 .pcard-customer {
-    font-weight: 800;
-    font-size: 1.15rem;
-    color: #2d3748;
+    font-weight: 700;
+    color: var(--color-text);
+    font-size: 0.95rem;
+}
+
+.pcard-items-box {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: #475569;
+}
+
+.pcard-items-list {
+    font-size: 0.88rem;
+    color: #4a5568;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.pcard-note-inline {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: #be185d;
+    font-style: italic;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 8px;
+}
+
+.pcard-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-bottom: 12px;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.meta-item strong {
+    color: #334155;
+}
+
+.pcard-footer {
+    border-top: 1px dashed #e2e8f0;
+    padding-top: 12px;
+}
+
+.pcard-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.pcard-btn {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+
+.pcard-btn.start {
+    background: #eef2ff;
+    color: #6366f1;
+    border: 1px solid #c7d2fe;
+}
+
+.pcard-btn.ready {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+.pcard-btn.collect {
+    background: #f0f9ff;
+    color: #0284c7;
+    border: 1px solid #bae6fd;
+}
+
+.pcard-done {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: #059669;
+    font-weight: 600;
 }
 
 .pcard-badge {
-    padding: 5px 14px;
-    border-radius: 99px;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    text-transform: capitalize;
+    padding: 2px 8px;
+    border-radius: 99px;
+    text-transform: uppercase;
 }
 
-.pcard-badge.gray {
-    background: #edf2f7;
-    color: #4a5568;
+.pcard-badge.orange {
+    background: #ffedd5;
+    color: #9a3412;
 }
 
 .pcard-badge.green {
@@ -869,149 +782,37 @@
     color: #065f46;
 }
 
-.pcard-badge.orange {
-    background: #fef3c7;
-    color: #92400e;
+.pcard-badge.gray {
+    background: #f3f4f6;
+    color: #374151;
 }
 
-.pcard-items-box {
-    background: #fff0f3;
-    border-radius: 16px;
-    padding: 16px;
-    margin-bottom: 20px;
-}
-
-.pcard-items-list {
-    font-size: 0.95rem;
-    color: #4a5568;
-    line-height: 1.6;
-    white-space: pre-line;
-    font-weight: 500;
-}
-
-.pcard-note-inline {
-    margin-top: 12px;
-    font-size: 0.9rem;
-    color: #be185d;
-    font-style: italic;
-    border-top: 1px solid rgba(255, 107, 157, 0.15);
-    padding-top: 10px;
-}
-
-.pcard-meta {
+.pcal-empty-day {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-bottom: 20px;
-    padding: 0 4px;
-}
-
-.meta-item {
-    display: flex;
     align-items: center;
-    gap: 10px;
-    font-size: 0.9rem;
-    color: #718096;
-}
-
-.meta-item strong {
-    color: #1a202c;
-    font-weight: 700;
-}
-
-.meta-item.blue {
-    color: #4f46e5;
-}
-
-.meta-item.blue strong {
-    color: #4f46e5;
-}
-
-.pcard-footer {
-    border-top: 1px dashed #e2e8f0;
-    padding-top: 16px;
-}
-
-.pcard-price {
-    font-size: 0.95rem;
-    color: #718096;
-    margin-bottom: 16px;
-    font-weight: 500;
-}
-
-.pcard-price .price-bold {
-    color: #ef4444;
-    font-weight: 800;
-}
-
-.pcard-actions {
-    display: flex;
-    gap: 12px;
-}
-
-.pcard-btn {
-    flex: 1;
-    border: none;
-    padding: 12px;
-    border-radius: 12px;
-    font-weight: 700;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.pcard-btn.start {
-    background: #ff6b9d;
-    color: #fff;
-}
-
-.pcard-btn.ready {
-    background: #10b981;
-    color: #fff;
-}
-
-.pcard-btn.collect {
-    background: #f59e0b;
-    color: #fff;
-}
-
-.pcard-btn:hover {
-    transform: translateY(-2px);
-    filter: brightness(1.1);
-}
-
-.pcard-done {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #059669;
-    font-weight: 700;
-    font-size: 0.95rem;
     justify-content: center;
-    padding: 4px 0;
+    height: 100%;
+    color: #94a3b8;
+    text-align: center;
+    gap: 12px;
+    padding: 40px 20px;
 }
 
-@keyframes slideInRight {
-    from {
-        opacity: 0;
-        transform: translateX(20px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
+.pcal-empty-day p {
+    font-size: 0.9rem;
+    font-weight: 500;
 }
 
 @media (max-width: 1200px) {
-    .planning-calendar-wrapper {
+    .calendar-wrapper {
         flex-direction: column;
     }
 
-    .pcal-detail-panel-redesign {
+    .cal-detail-panel {
         border-left: none;
-        border-top: 1px solid #fceef2;
+        border-top: 1px solid var(--color-border);
         padding-left: 0;
-        padding-top: 32px;
+        padding-top: 24px;
     }
 }

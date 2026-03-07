@@ -582,18 +582,18 @@ function PlanningCalendar({ orders, onStatusChange, selectedDate, setSelectedDat
     for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
     return (
-        <div className="planning-calendar-wrapper">
-            <div className="planning-calendar-main">
-                <div className="pcal-nav-redesign">
-                    <button className="pcal-nav-btn circle" onClick={prevMonth}><ChevronLeft size={16} /></button>
-                    <h3 className="pcal-title-redesign">{MONTHS_FR[viewMonth]} {viewYear}</h3>
-                    <button className="pcal-nav-btn circle" onClick={nextMonth}><ChevronRight size={16} /></button>
+        <div className="calendar-wrapper">
+            <div className="calendar-main">
+                <div className="cal-nav">
+                    <button className="cal-nav-btn" onClick={prevMonth}><ChevronLeft size={20} /></button>
+                    <h3 className="cal-title">{MONTHS_FR[viewMonth]} {viewYear}</h3>
+                    <button className="cal-nav-btn" onClick={nextMonth}><ChevronRight size={20} /></button>
                 </div>
 
-                <div className="pcal-grid">
-                    {DAYS_FR.map(d => <div key={d} className="pcal-day-header">{d}</div>)}
+                <div className="cal-grid">
+                    {DAYS_FR.map(d => <div key={d} className="cal-day-header">{d}</div>)}
                     {cells.map((day, i) => {
-                        if (!day) return <div key={`e${i}`} className="pcal-cell empty" />;
+                        if (!day) return <div key={`e${i}`} className="cal-cell empty" />;
                         const key = formatDateKey(viewYear, viewMonth, day);
                         const dayOrders = ordersByDate[key] || [];
                         const isToday = key === todayKey;
@@ -602,13 +602,15 @@ function PlanningCalendar({ orders, onStatusChange, selectedDate, setSelectedDat
                         return (
                             <div
                                 key={day}
-                                className={`pcal-cell-redesign ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''} ${dayOrders.length > 0 ? 'has-orders' : ''}`}
+                                className={`cal-cell ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''} ${dayOrders.length > 0 ? 'has-orders' : ''}`}
                                 onClick={() => setSelectedDate(key)}
                             >
-                                <span className="pcal-day-num">{day}</span>
+                                <span className="cal-day-num">{day}</span>
                                 {dayOrders.length > 0 && (
-                                    <div className="pcal-order-token">
-                                        {dayOrders.length}
+                                    <div className="cal-dots">
+                                        <div className="cal-order-token">
+                                            {dayOrders.length}
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -616,34 +618,33 @@ function PlanningCalendar({ orders, onStatusChange, selectedDate, setSelectedDat
                     })}
                 </div>
 
-                <div className="pcal-legend-redesign">
+                <div className="cal-legend">
                     <div className="legend-item"><span className="pcal-dot green" /> Prêt</div>
                     <div className="legend-item"><span className="pcal-dot orange" /> En attente</div>
                 </div>
             </div>
 
-            <div className="pcal-detail-panel-redesign">
+            <div className="cal-detail-panel">
                 {selectedDate ? (
                     <>
-                        <div className="pcal-detail-header-redesign">
+                        <div className="cal-detail-header">
                             <h3>{fmt(selectedDate, { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
-                            <button className="pcal-add-btn">+ Ajouter</button>
                         </div>
                         {selectedOrders.length > 0 ? (
-                            <div className="pcal-detail-list-redesign">
+                            <div className="cal-detail-list">
                                 {selectedOrders.map(o => (
                                     <ProductionCard key={o.id} order={o} onStatusChange={onStatusChange} />
                                 ))}
                             </div>
                         ) : (
-                            <div className="pcal-empty-state">
+                            <div className="cal-empty-day">
                                 <CalendarClock size={48} />
                                 <p>Aucune production prévue pour ce jour.</p>
                             </div>
                         )}
                     </>
                 ) : (
-                    <div className="pcal-empty-state">
+                    <div className="cal-empty-day">
                         <Calendar size={48} />
                         <p>Cliquez sur un jour pour voir le détail de la production.</p>
                     </div>
