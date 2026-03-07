@@ -81,6 +81,45 @@ function DevisDrawer({ open, onClose, onSave, editData = null }) {
         }));
     };
 
+    const [priceEdits, setPriceEdits] = useState({});
+
+    useEffect(() => {
+        if (!open) return;
+        setPriceEdits(prev => {
+            const next = { ...prev };
+            form.items.forEach(i => {
+                if (!(i.id in next)) next[i.id] = i.price > 0 ? String(i.price) : '';
+            });
+            return next;
+        });
+    }, [form.items, open]);
+
+    const commitPrice = (id) => {
+        const raw = priceEdits[id] ?? '';
+        const parsed = parseFloat(raw.replace(',', '.'));
+        setForm(f => ({
+            ...f,
+            items: f.items.map(i => i.id === id ? { ...i, price: isNaN(parsed) ? 0 : parsed } : i)
+        }));
+    };
+
+    const [customName, setCustomName] = useState('');
+    const [customPrice, setCustomPrice] = useState('');
+
+    const addCustomArticle = () => {
+        if (!customName.trim()) return;
+        const parsed = parseFloat(customPrice.replace(',', '.'));
+        const customItem = {
+            id: `custom_${Date.now()}`,
+            name: customName.trim(),
+            price: isNaN(parsed) ? 0 : parsed,
+            qty: 1
+        };
+        setForm(f => ({ ...f, items: [...f.items, customItem] }));
+        setCustomName('');
+        setCustomPrice('');
+    };
+
     const catalogTotal = form.items.reduce((s, i) => s + (i.price * i.qty), 0);
     const effectiveTotal = (parseFloat(form.totalPrice) || catalogTotal) - (parseFloat(form.discount) || 0);
 
@@ -162,63 +201,123 @@ function DevisDrawer({ open, onClose, onSave, editData = null }) {
                         </div>
                     )}
 
+                    {/* ── Step 2: Products ── */}
                     {step === 2 && (
                         <div className="step-content">
-                            <div className="products-selection-layout">
-                                <div className="selection-main">
-                                    <div className="cat-filter-row">
-                                        <button className={`cat-chip ${activeCat === 'all' ? 'active' : ''}`} onClick={() => setActiveCat('all')}>Tous</button>
-                                        {categories.map(c => (
-                                            <button key={c.id} className={`cat-chip ${activeCat === c.id ? 'active' : ''}`} onClick={() => setActiveCat(c.id)}>{c.name}</button>
-                                        ))}
-                                    </div>
-                                    <div className="products-picker-grid">
-                                        {products.filter(p => {
-                                            const matchCat = activeCat === 'all' || p.categoryId === activeCat;
-                                            const matchSearch = p.name.toLowerCase().includes(productSearch.toLowerCase());
-                                            return matchCat && matchSearch;
-                                        }).map(p => {
-                                            const inCart = form.items.find(i => i.id === p.id);
-                                            return (
-                                                <div key={p.id} className={`product-chip ${inCart ? 'selected' : ''}`}
-                                                    style={{ background: p.color + '15', border: '2px solid ' + (inCart ? 'var(--devis-primary)' : 'transparent') }}
-                                                    onClick={() => addProduct(p)}>
-                                                    <strong>{p.name}</strong>
-                                                    <span>{p.price.toFixed(2)}€</span>
-                                                    {inCart && <span className="chip-qty-badge">{inCart.qty}</span>}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                <div className="cart-preview">
-                                    <h4><ShoppingBag size={18} /> Sélection ({form.items.length})</h4>
-                                    <div className="cart-items-list">
-                                        {form.items.map(item => (
-                                            <div key={item.id} className="cart-item">
-                                                <div className="item-info">
-                                                    <div className="item-name">{item.name}</div>
-                                                    <div className="item-price">{(item.price * item.qty).toFixed(2)}€</div>
-                                                </div>
-                                                <div className="qty-controls">
-                                                    <button className="qty-btn" onClick={() => updateQty(item.id, -1)}><Minus size={12} /></button>
-                                                    <span className="qty-val">{item.qty}</span>
-                                                    <button className="qty-btn" onClick={() => updateQty(item.id, 1)}><Plus size={12} /></button>
-                                                </div>
+                            {/* Cart summary at top */}
+                            {form.items.length > 0 && (
+                                <div className="cart-mini">
+                                    {form.items.map(item => (
+                                        <div key={item.id} className="cart-mini-item">
+                                            <span className="cart-mini-name">{item.name}</span>
+                                            <div className="cart-mini-controls">
+                                                <button className="qty-sm" onClick={() => updateQty(item.id, -1)}><Minus size={12} /></button>
+                                                <span>{item.qty}</span>
+                                                <button className="qty-sm" onClick={() => updateQty(item.id, 1)}><Plus size={12} /></button>
                                             </div>
-                                        ))}
-                                        {form.items.length === 0 && <p className="empty-hint">Aucun article sélectionné</p>}
-                                    </div>
-                                    {form.items.length > 0 && (
-                                        <div className="cart-total-mini">
-                                            Sous-total: <strong>{catalogTotal.toFixed(2)} €</strong>
+                                            {/* Editable unit price — string-based to avoid mid-keystroke parsing bugs */}
+                                            <div className="price-edit-wrap">
+                                                <input
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    value={priceEdits[item.id] ?? (item.price > 0 ? String(item.price) : '')}
+                                                    onChange={e => setPriceEdits(p => ({ ...p, [item.id]: e.target.value }))}
+                                                    onBlur={() => commitPrice(item.id)}
+                                                    placeholder="0.00"
+                                                    className="price-edit-input"
+                                                />
+                                                <span className="price-edit-unit">€/u</span>
+                                            </div>
+                                            <span className="cart-mini-price">{item.price > 0 ? `= ${(item.price * item.qty).toFixed(2)}€` : '—'}</span>
                                         </div>
-                                    )}
+                                    ))}
+                                    <div className="cart-mini-total">Sous-total : <strong>{catalogTotal.toFixed(2)} €</strong></div>
                                 </div>
+                            )}
+
+                            {/* Category filters */}
+                            <div className="cat-filter-row">
+                                <button className={`cat-chip ${activeCat === 'all' ? 'active' : ''}`} onClick={() => setActiveCat('all')}>Tous</button>
+                                {categories.map(c => (
+                                    <button key={c.id} className={`cat-chip ${activeCat === c.id ? 'active' : ''}`} onClick={() => setActiveCat(c.id)}>
+                                        {c.name}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Product search */}
+                            <div className="input-icon-wrap" style={{ marginBottom: 12 }}>
+                                <Search size={16} className="input-icon" />
+                                <input type="text" placeholder="Rechercher un produit..." value={productSearch} onChange={e => setProductSearch(e.target.value)} />
+                            </div>
+
+                            {/* Product grid */}
+                            <div className="products-picker-grid">
+                                {products.filter(p => {
+                                    const matchCat = activeCat === 'all' || p.categoryId === activeCat;
+                                    const matchSearch = p.name.toLowerCase().includes(productSearch.toLowerCase());
+                                    return matchCat && matchSearch;
+                                }).map(p => {
+                                    const inCart = form.items.find(i => i.id === p.id);
+                                    return (
+                                        <div key={p.id} className={`product-chip ${inCart ? 'selected' : ''}`} style={{ backgroundColor: p.color + (inCart ? '' : '99'), borderColor: inCart ? 'var(--color-primary)' : 'transparent' }} onClick={() => addProduct(p)}>
+                                            <span className="chip-name">{p.name}</span>
+                                            <span className="chip-price">{p.price > 0 ? `${p.price.toFixed(2)}€` : 'prix libre'}</span>
+                                            {inCart && <span className="chip-qty-badge">{inCart.qty}</span>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Custom article */}
+                            <div className="custom-article-box">
+                                <p className="custom-article-label">➕ Ajouter un article hors catalogue</p>
+                                <div className="custom-article-row">
+                                    <input
+                                        type="text"
+                                        className="custom-article-name"
+                                        placeholder="Nom de l'article..."
+                                        value={customName}
+                                        onChange={e => setCustomName(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && addCustomArticle()}
+                                    />
+                                    <div className="custom-article-price-wrap">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="Prix"
+                                            value={customPrice}
+                                            onChange={e => setCustomPrice(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && addCustomArticle()}
+                                            className="custom-article-price"
+                                        />
+                                        <span>€</span>
+                                    </div>
+                                    <button
+                                        className="btn-primary custom-article-add"
+                                        onClick={addCustomArticle}
+                                        disabled={!customName.trim()}
+                                        type="button"
+                                    >
+                                        <Plus size={16} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Notes supplémentaires */}
+                            <div className="form-group">
+                                <label>Notes pour le labo (déco, allergies...)</label>
+                                <textarea
+                                    value={form.freeText}
+                                    onChange={e => setForm(f => ({ ...f, freeText: e.target.value }))}
+                                    placeholder={"Ex: bougie dorée, décor mariage, sans gluten"}
+                                    rows={2}
+                                    style={{ resize: 'none' }}
+                                />
                             </div>
                         </div>
                     )}
+
 
                     {step === 3 && (
                         <div className="step-content">
