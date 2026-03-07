@@ -612,22 +612,26 @@
 
 /* Production specific tokens inside standard calendar cells */
 .cal-order-token {
-    background: #6366f122;
-    color: #6366f1;
-    font-size: 0.8rem;
+    background: #fdf2f8;
+    /* Very light pink */
+    color: #db2777;
+    /* Deep pink text */
+    font-size: 0.75rem;
     font-weight: 800;
-    width: 22px;
-    height: 22px;
+    padding: 2px 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
+    border-radius: 99px;
+    /* Pill shape */
     margin-top: 4px;
+    border: 1px solid #fbcfe8;
 }
 
 .cal-cell.selected .cal-order-token {
     background: rgba(255, 255, 255, 0.4);
     color: white;
+    border-color: transparent;
 }
 
 /* Dots for legend / quick view */

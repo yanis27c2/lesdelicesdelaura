@@ -292,48 +292,54 @@ function DevisCard({ devis, onStatusChange, onDelete, onConvertToOrder, onEdit }
     const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.brouillon;
 
     return (
-        <div className="devis-card">
-            <div className="devis-card-header">
-                <div className="devis-header-left">
-                    <div className="devis-numero">{devis.numero}</div>
-                    <div className="devis-customer">{devis.customerName}</div>
+        <div className="order-card">
+            <div className="order-card-header">
+                <div>
+                    <div className="order-customer">{devis.customerName}</div>
+                    <div className="order-phone" style={{ marginTop: '2px' }}>{devis.numero} • Créé le {new Date(devis.createdAt).toLocaleDateString('fr-FR')}</div>
                 </div>
-                <div className="devis-status-badge" style={{ background: cfg.bg, color: cfg.color }}>
-                    {cfg.label}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className="order-status-badge" style={{ backgroundColor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}` }}>
+                        {cfg.label}
+                    </div>
                 </div>
             </div>
 
-            <div className="devis-items">
+            <div className="order-items">
                 {devis.parsedItems?.length > 0
                     ? devis.parsedItems.map(i => `${i.qty}× ${i.name}`).join(', ')
                     : devis.items?.substring(0, 100) + '...'}
             </div>
 
-            <div className="devis-footer-row">
-                <div className="devis-meta">
-                    <span>Créé le {new Date(devis.createdAt).toLocaleDateString('fr-FR')}</span>
-                    <strong>Expire le {new Date(devis.validityDate).toLocaleDateString('fr-FR')}</strong>
-                </div>
-                <div className="devis-total">
-                    {(devis.totalPrice - (devis.discount || 0)).toFixed(2)} €
+            <div className="order-footer" style={{ marginBottom: 12 }}>
+                <div className="order-meta">
+                    <Clock size={14} />
+                    <span>Expire le : <strong>{new Date(devis.validityDate).toLocaleDateString('fr-FR')}</strong></span>
                 </div>
             </div>
 
-            <div className="devis-actions">
+            {(devis.totalPrice > 0 || devis.discount > 0) && (
+                <div className="order-total-row">
+                    Total devis : <strong style={{ color: 'var(--color-primary-dark)' }}>{((devis.totalPrice || 0) - (devis.discount || 0)).toFixed(2)} €</strong>
+                    {devis.discount > 0 && <span style={{ marginLeft: 8, color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>(Remise : {parseFloat(devis.discount).toFixed(2)} €)</span>}
+                </div>
+            )}
+
+            <div className="order-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>
                 {status === 'brouillon' && (
-                    <button className="devis-btn" onClick={() => onStatusChange(devis, 'envoye')}><Send size={14} /> Envoyer</button>
+                    <button className="btn-action" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b' }} onClick={() => onStatusChange(devis, 'envoye')}><Send size={15} /> Envoyer</button>
                 )}
                 {status === 'envoye' && (
                     <>
-                        <button className="devis-btn accepte" onClick={() => onStatusChange(devis, 'accepte')}><CheckCircle2 size={14} /> Accepter</button>
-                        <button className="devis-btn" onClick={() => onStatusChange(devis, 'refuse')}><XCircle size={14} /> Refuser</button>
+                        <button className="btn-action ready" onClick={() => onStatusChange(devis, 'accepte')}><CheckCircle2 size={15} /> Accepter</button>
+                        <button className="btn-action" style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#ef4444' }} onClick={() => onStatusChange(devis, 'refuse')}><XCircle size={15} /> Refuser</button>
                     </>
                 )}
                 {status === 'accepte' && (
-                    <button className="devis-btn convert" onClick={() => onConvertToOrder(devis)}><ShoppingBag size={14} /> Convertir</button>
+                    <button className="btn-action" style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', color: '#8b5cf6' }} onClick={() => onConvertToOrder(devis)}><ShoppingBag size={15} /> Convertir</button>
                 )}
-                <button className="devis-btn" onClick={() => onEdit(devis)}><Edit3 size={14} /></button>
-                <button className="devis-btn" onClick={() => onDelete(devis.id)} style={{ color: '#ef4444' }}><Trash2 size={14} /></button>
+                <button className="btn-action" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b' }} onClick={() => onEdit(devis)}><Edit3 size={15} /> Modifier</button>
+                <button className="btn-action" style={{ background: '#fff', border: '1px solid #fee2e2', color: '#ef4444' }} onClick={() => onDelete(devis.id)}><Trash2 size={15} /> Supprimer</button>
             </div>
         </div>
     );
@@ -400,49 +406,15 @@ export default function Devis() {
     };
 
     return (
-        <div className="devis-container">
-            <div className="devis-header">
-                <div className="devis-header-left">
-                    <h2>Gestion des Devis</h2>
-                    <span className="devis-header-sub">{devisList.length} devis au total dans votre base</span>
-                </div>
-                <button className="devis-new-btn" onClick={() => { setEditingDevis(null); setIsDrawerOpen(true); }}>
-                    <Plus size={20} /> Nouveau Devis
+        <div className="admin-container" style={{ overflowY: 'auto', paddingBottom: 60 }}>
+            <div className="admin-header">
+                <h2><FileText /> Gestion des Devis</h2>
+                <button className="btn-primary" onClick={() => { setEditingDevis(null); setIsDrawerOpen(true); }} style={{ padding: '0.8rem 1.5rem', display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <Plus size={18} /> Nouveau Devis
                 </button>
             </div>
 
-            <div className="devis-stats-bar">
-                <div className="stat-card devis-stat">
-                    <div className="stat-icon">📑</div>
-                    <div>
-                        <div className="stat-number">{devisList.length}</div>
-                        <div className="stat-label">Total</div>
-                    </div>
-                </div>
-                <div className="stat-card devis-stat">
-                    <div className="stat-icon" style={{ background: '#fffbeb' }}>📤</div>
-                    <div>
-                        <div className="stat-number">{devisList.filter(d => d.status === 'envoye').length}</div>
-                        <div className="stat-label">Envoyés</div>
-                    </div>
-                </div>
-                <div className="stat-card devis-stat">
-                    <div className="stat-icon" style={{ background: '#ecfdf5' }}>✅</div>
-                    <div>
-                        <div className="stat-number">{devisList.filter(d => d.status === 'accepte').length}</div>
-                        <div className="stat-label">Acceptés</div>
-                    </div>
-                </div>
-                <div className="stat-card devis-stat">
-                    <div className="stat-icon" style={{ background: '#f5f3ff' }}>🎯</div>
-                    <div>
-                        <div className="stat-number">{devisList.filter(d => d.status === 'converti').length}</div>
-                        <div className="stat-label">Convertis</div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="devis-tabs">
+            <div className="order-filter-tabs">
                 {TABS.map(t => (
                     <button key={t.key} className={`filter-tab ${filterStatus === t.key ? 'active' : ''}`} onClick={() => setFilterStatus(t.key)}>
                         {t.label}
@@ -453,7 +425,7 @@ export default function Devis() {
                 ))}
             </div>
 
-            <div className="devis-list">
+            <div className="orders-list">
                 {devisList.filter(d => filterStatus === 'all' || d.status === filterStatus).map(d => (
                     <DevisCard key={d.id} devis={d}
                         onStatusChange={handleStatusChange}
@@ -462,6 +434,14 @@ export default function Devis() {
                         onConvertToOrder={handleConvertToOrder}
                     />
                 ))}
+                {devisList.filter(d => filterStatus === 'all' || d.status === filterStatus).length === 0 && (
+                    <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: 60 }}>
+                        Aucun devis trouvé.<br />
+                        <button className="btn-primary" style={{ marginTop: 16, padding: '10px 20px', display: 'inline-flex', gap: 8 }} onClick={() => { setEditingDevis(null); setIsDrawerOpen(true); }}>
+                            <Plus size={16} /> Créer un devis
+                        </button>
+                    </div>
+                )}
             </div>
 
             <DevisDrawer open={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} onSave={handleSave} editData={editingDevis} />

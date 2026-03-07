@@ -609,7 +609,7 @@ function PlanningCalendar({ orders, onStatusChange, selectedDate, setSelectedDat
                                 {dayOrders.length > 0 && (
                                     <div className="cal-dots">
                                         <div className="cal-order-token">
-                                            {dayOrders.length}
+                                            {dayOrders.length} {dayOrders.length > 1 ? 'à prod' : 'à prod'}
                                         </div>
                                     </div>
                                 )}
