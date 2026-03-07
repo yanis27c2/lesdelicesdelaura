@@ -1,7 +1,7 @@
 // Simple wrapper for IndexedDB to store sales, products, and categories offline
 
 const DB_NAME = 'BakeryPOS_DB';
-const DB_VERSION = 5; // Added devis store
+const DB_VERSION = 6; // v6: productionStartDate index on orders
 const STORE_SALES = 'sales';
 const STORE_PRODUCTS = 'products';
 const STORE_CATEGORIES = 'categories';
@@ -76,6 +76,14 @@ export const initDB = () => {
                 const orderStore = database.createObjectStore(STORE_ORDERS, { keyPath: 'id', autoIncrement: true });
                 orderStore.createIndex('status', 'status', { unique: false });
                 orderStore.createIndex('pickupDate', 'pickupDate', { unique: false });
+                orderStore.createIndex('productionStartDate', 'productionStartDate', { unique: false });
+            } else {
+                // Upgrade v5 → v6: add productionStartDate index if missing
+                const tx = event.target.transaction;
+                const orderStore = tx.objectStore(STORE_ORDERS);
+                if (!orderStore.indexNames.contains('productionStartDate')) {
+                    orderStore.createIndex('productionStartDate', 'productionStartDate', { unique: false });
+                }
             }
 
             // Devis store

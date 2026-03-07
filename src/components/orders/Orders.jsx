@@ -1,14 +1,31 @@
-import { useState, useEffect, useRef } from 'react';
-import { ClipboardList, Plus, CheckCircle2, Clock, X, Trash2, Calendar, List, ChevronRight, ChevronLeft, User, Package, Euro, Search, Minus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ClipboardList, Plus, CheckCircle2, Clock, X, Trash2, Calendar, List, ChevronRight, ChevronLeft, User, Package, Euro, Search, Minus, Factory, Truck } from 'lucide-react';
 import { getOrders, saveOrder, deleteOrder, getCustomers, getProducts, getCategories } from '../../db/indexedDB';
 import './Orders.css';
 
-const STATUS_LABELS = { pending: 'En attente', ready: 'Prêt', collected: 'Récupéré' };
-const STATUS_COLORS = { pending: '#f59e0b', ready: '#10b981', collected: '#9ca3af' };
+const STATUS_LABELS = {
+    en_attente: 'En attente',
+    en_production: 'En production',
+    pret: 'Prêt à retirer',
+    recupere: 'Récupéré',
+    // legacy compat
+    pending: 'En attente',
+    ready: 'Prêt',
+    collected: 'Récupéré',
+};
+const STATUS_COLORS = {
+    en_attente: '#f59e0b',
+    en_production: '#6366f1',
+    pret: '#10b981',
+    recupere: '#9ca3af',
+    pending: '#f59e0b',
+    ready: '#10b981',
+    collected: '#9ca3af',
+};
 const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MONTHS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
-const EMPTY_FORM = { customerName: '', customerPhone: '', items: [], freeText: '', totalPrice: '', deposit: '', pickupDate: '', notes: '' };
+const EMPTY_FORM = { customerName: '', customerPhone: '', items: [], freeText: '', totalPrice: '', deposit: '', pickupDate: '', pickupTime: '', productionStartDate: '', notes: '' };
 
 /* ─────────── ORDER CREATION DRAWER ─────────── */
 function OrderDrawer({ open, onClose, onSave, prefillDate = '' }) {
@@ -123,7 +140,10 @@ function OrderDrawer({ open, onClose, onSave, prefillDate = '' }) {
             totalPrice: effectiveTotal,
             deposit: parseFloat(form.deposit) || 0,
             pickupDate: form.pickupDate,
-            notes: form.notes
+            pickupTime: form.pickupTime || '',
+            productionStartDate: form.productionStartDate || '',
+            notes: form.notes,
+            status: 'en_attente',
         });
         onClose();
     };
@@ -339,9 +359,21 @@ function OrderDrawer({ open, onClose, onSave, prefillDate = '' }) {
                                 </div>
                             </div>
 
+                            <div className="payment-row">
+                                <div className="form-group">
+                                    <label>📅 Date de retrait *</label>
+                                    <input type="date" required value={form.pickupDate} onChange={e => setForm(f => ({ ...f, pickupDate: e.target.value }))} />
+                                </div>
+                                <div className="form-group">
+                                    <label>⏰ Heure de retrait</label>
+                                    <input type="time" value={form.pickupTime || ''} onChange={e => setForm(f => ({ ...f, pickupTime: e.target.value }))} />
+                                </div>
+                            </div>
+
                             <div className="form-group">
-                                <label>📅 Date de retrait *</label>
-                                <input type="date" required value={form.pickupDate} onChange={e => setForm(f => ({ ...f, pickupDate: e.target.value }))} />
+                                <label>🏭 Début de production prévu</label>
+                                <input type="date" value={form.productionStartDate || ''} onChange={e => setForm(f => ({ ...f, productionStartDate: e.target.value }))} />
+                                <span className="field-hint">Quand faut-il commencer à préparer cette commande ? Cette date alimente le planning de production.</span>
                             </div>
 
                             <div className="payment-row">
@@ -417,7 +449,14 @@ function OrderDrawer({ open, onClose, onSave, prefillDate = '' }) {
 }
 
 /* ─────────── ORDER CARD ─────────── */
-function OrderCard({ order, onStatusChange, onDelete }) {
+function OrderCard({ order, onStatusChange, onDelete, onSendToPlanning }) {
+    const status = order.status || 'en_attente';
+    const color = STATUS_COLORS[status] || '#f59e0b';
+
+    const fmt = (dateStr) => dateStr
+        ? new Date(dateStr + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+        : null;
+
     return (
         <div className="order-card">
             <div className="order-card-header">
@@ -426,8 +465,8 @@ function OrderCard({ order, onStatusChange, onDelete }) {
                     {order.customerPhone && <div className="order-phone">📞 {order.customerPhone}</div>}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div className="order-status-badge" style={{ backgroundColor: STATUS_COLORS[order.status] + '22', color: STATUS_COLORS[order.status], border: `1px solid ${STATUS_COLORS[order.status]}` }}>
-                        {STATUS_LABELS[order.status]}
+                    <div className="order-status-badge" style={{ backgroundColor: color + '22', color, border: `1px solid ${color}` }}>
+                        {STATUS_LABELS[status]}
                     </div>
                     <button className="btn-icon delete" onClick={() => onDelete(order.id)}><Trash2 size={16} /></button>
                 </div>
@@ -438,12 +477,21 @@ function OrderCard({ order, onStatusChange, onDelete }) {
             <div className="order-footer">
                 <div className="order-meta">
                     <Clock size={14} />
-                    <span>Retrait : <strong>{order.pickupDate ? new Date(order.pickupDate + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : 'Non précisé'}</strong></span>
+                    <span>Retrait : <strong>{fmt(order.pickupDate) || 'Non précisé'}</strong>
+                        {order.pickupTime && <span style={{ marginLeft: 6, color: 'var(--color-primary)' }}>à {order.pickupTime}</span>}
+                    </span>
                 </div>
+                {order.productionStartDate && (
+                    <div className="order-meta" style={{ color: '#6366f1' }}>
+                        <Factory size={14} />
+                        <span>Production : <strong>{fmt(order.productionStartDate)}</strong></span>
+                    </div>
+                )}
                 {order.deposit > 0 && (
                     <div className="order-deposit">Acompte : {parseFloat(order.deposit).toFixed(2)} €</div>
                 )}
             </div>
+
             {order.totalPrice > 0 && (
                 <div className="order-total-row">
                     Reste à percevoir : <strong style={{ color: 'var(--color-primary-dark)' }}>{Math.max(0, order.totalPrice - (order.deposit || 0)).toFixed(2)} €</strong>
@@ -453,17 +501,25 @@ function OrderCard({ order, onStatusChange, onDelete }) {
             {order.notes && <div className="order-notes">📝 {order.notes}</div>}
 
             <div className="order-actions">
-                {order.status === 'pending' && (
-                    <button className="btn-action ready" onClick={() => onStatusChange(order, 'ready')}>
+                {(status === 'en_attente' || status === 'pending') && (
+                    <button className="btn-action" style={{ background: '#eef2ff', color: '#6366f1', border: '1px solid #c7d2fe' }}
+                        onClick={() => onSendToPlanning(order)}>
+                        <Factory size={15} /> Envoyer en planning
+                    </button>
+                )}
+                {status === 'en_production' && (
+                    <button className="btn-action ready" onClick={() => onStatusChange(order, 'pret')}>
                         <CheckCircle2 size={15} /> Marquer Prêt
                     </button>
                 )}
-                {order.status === 'ready' && (
-                    <button className="btn-action collected" onClick={() => onStatusChange(order, 'collected')}>
-                        <CheckCircle2 size={15} /> Marquer Récupéré
+                {(status === 'pret' || status === 'ready') && (
+                    <button className="btn-action collected" onClick={() => onStatusChange(order, 'recupere')}>
+                        <Truck size={15} /> Marquer Récupéré
                     </button>
                 )}
-                {order.status === 'collected' && <span className="collected-badge">✅ Commande terminée</span>}
+                {(status === 'recupere' || status === 'collected') && (
+                    <span className="collected-badge">✅ Commande terminée</span>
+                )}
             </div>
         </div>
     );
@@ -573,20 +629,40 @@ export default function Orders() {
 
     const loadOrders = async () => {
         const data = await getOrders();
-        setOrders(data.sort((a, b) => new Date(a.pickupDate) - new Date(b.pickupDate)));
+        setOrders(data.sort((a, b) => new Date(a.pickupDate || '9999') - new Date(b.pickupDate || '9999')));
     };
 
     useEffect(() => { loadOrders(); }, []);
+    useEffect(() => {
+        const handler = () => loadOrders();
+        window.addEventListener('devisConverted', handler);
+        return () => window.removeEventListener('devisConverted', handler);
+    }, []);
 
     const handleStatusChange = async (order, nextStatus) => { await saveOrder({ ...order, status: nextStatus }); loadOrders(); };
     const handleDelete = async (id) => { if (confirm('Supprimer cette commande ?')) { await deleteOrder(id); loadOrders(); } };
 
-    const openDrawer = (dateStr = '') => { setPrefillDate(dateStr); setIsDrawerOpen(true); };
+    const handleSendToPlanning = async (order) => {
+        const prodDate = prompt(
+            `Date de début de production pour ${order.customerName}\n(Retrait prévu : ${order.pickupDate || 'non défini'})\n\nSaisir la date (AAAA-MM-JJ) :`,
+            order.productionStartDate || ''
+        );
+        if (prodDate === null) return; // annulé
+        await saveOrder({ ...order, productionStartDate: prodDate, status: 'en_production' });
+        loadOrders();
+        window.dispatchEvent(new Event('planningUpdated'));
+    };
 
+    const openDrawer = (dateStr = '') => { setPrefillDate(dateStr); setIsDrawerOpen(true); };
     const handleSave = async (orderData) => { await saveOrder(orderData); loadOrders(); };
 
-    const filtered = orders.filter(o => filterStatus === 'all' || o.status === filterStatus);
-    const counts = orders.reduce((acc, o) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {});
+    const ALL_STATUSES = ['en_attente', 'en_production', 'pret', 'recupere'];
+    const filtered = orders.filter(o => filterStatus === 'all' || (o.status || 'en_attente') === filterStatus);
+    const counts = orders.reduce((acc, o) => {
+        const s = o.status || 'en_attente';
+        acc[s] = (acc[s] || 0) + 1;
+        return acc;
+    }, {});
 
     const urgentOrders = orders.filter(o => {
         if (o.status === 'collected' || !o.pickupDate) return false;
@@ -630,7 +706,7 @@ export default function Orders() {
             ) : (
                 <>
                     <div className="order-filter-tabs">
-                        {['all', 'pending', 'ready', 'collected'].map(s => (
+                        {['all', ...ALL_STATUSES].map(s => (
                             <button key={s} className={`filter-tab ${filterStatus === s ? 'active' : ''}`} onClick={() => setFilterStatus(s)}>
                                 {s === 'all' ? 'Toutes' : STATUS_LABELS[s]}
                                 <span className="tab-count">{s === 'all' ? orders.length : (counts[s] || 0)}</span>
@@ -638,7 +714,7 @@ export default function Orders() {
                         ))}
                     </div>
                     <div className="orders-list">
-                        {filtered.map(o => <OrderCard key={o.id} order={o} onStatusChange={handleStatusChange} onDelete={handleDelete} />)}
+                        {filtered.map(o => <OrderCard key={o.id} order={o} onStatusChange={handleStatusChange} onDelete={handleDelete} onSendToPlanning={handleSendToPlanning} />)}
                         {filtered.length === 0 && (
                             <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: 60 }}>
                                 Aucune commande.<br />

@@ -163,6 +163,7 @@ function DevisDrawer({ open, onClose, onSave, editData = null }) {
             totalPrice: parseFloat(form.totalPrice) || catalogTotal,
             discount,
             validityDate: form.validityDate,
+            pickupDate: form.pickupDate,
             notes: form.notes,
         });
         onClose();
@@ -328,6 +329,12 @@ function DevisDrawer({ open, onClose, onSave, editData = null }) {
                             <div className="form-group">
                                 <label>📅 Date de validité *</label>
                                 <input type="date" required value={form.validityDate} onChange={e => setForm(f => ({ ...f, validityDate: e.target.value }))} />
+                            </div>
+
+                            <div className="form-group">
+                                <label>🚗 Date de retrait (prévue)</label>
+                                <input type="date" value={form.pickupDate || ''} onChange={e => setForm(f => ({ ...f, pickupDate: e.target.value }))} />
+                                <span className="field-hint">Cette date sera pré-remplie lors de la conversion en commande</span>
                             </div>
 
                             <div className="payment-row">
@@ -600,13 +607,15 @@ export default function Devis() {
             totalPrice: Math.max(0, (d.totalPrice || 0) - (d.discount || 0)),
             deposit: 0,
             notes: `Converti depuis devis ${d.numero}`,
-            pickupDate: '',
-            status: 'pending'
+            pickupDate: d.pickupDate || '',
+            pickupTime: '',
+            productionStartDate: '',
+            status: 'en_attente'
         });
         await saveDevis({ ...d, status: 'converti' });
         load();
         window.dispatchEvent(new Event('devisConverted'));
-        alert(`✅ Commande créée ! Rendez-vous dans l'onglet Commandes pour définir la date de retrait.`);
+        alert(`✅ Commande créée depuis ${d.numero} !\nLa date de retrait a été pré-remplie. Rendez-vous dans l'onglet Commandes pour finaliser.`);
     };
 
     const handleEdit = (d) => {

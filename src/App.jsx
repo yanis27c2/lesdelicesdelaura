@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 import './AppNav.css';
-import { Store, Wifi, WifiOff, LayoutGrid, Package, BarChart3, Calculator, Users, ClipboardList, FileText } from 'lucide-react';
+import { Store, Wifi, WifiOff, LayoutGrid, Package, BarChart3, Calculator, Users, ClipboardList, FileText, CalendarClock } from 'lucide-react';
 import ProductGrid from './components/pos/ProductGrid';
 import Cart from './components/pos/Cart';
 import SyncManager from './components/sync/SyncManager';
@@ -11,6 +11,7 @@ import ZReport from './components/stats/ZReport';
 import Customers from './components/customers/Customers';
 import Orders from './components/orders/Orders';
 import Devis from './components/devis/Devis';
+import Planning from './components/planning/Planning';
 import { saveSale } from './db/indexedDB';
 import { seedDatabaseIfEmpty } from './db/initData';
 
@@ -123,6 +124,9 @@ function App() {
         <button className={`nav-item ${currentView === 'orders' ? 'active' : ''}`} onClick={() => setCurrentView('orders')}>
           <ClipboardList size={18} /> Commandes
         </button>
+        <button className={`nav-item ${currentView === 'planning' ? 'active' : ''}`} onClick={() => setCurrentView('planning')}>
+          <CalendarClock size={18} /> Planning
+        </button>
         <button className={`nav-item ${currentView === 'devis' ? 'active' : ''}`} onClick={() => setCurrentView('devis')}>
           <FileText size={18} /> Devis
         </button>
@@ -139,6 +143,7 @@ function App() {
           {currentView === 'stats' && <Dashboard />}
           {currentView === 'zreport' && <ZReport />}
           {currentView === 'orders' && <Orders />}
+          {currentView === 'planning' && <Planning />}
           {currentView === 'devis' && <Devis />}
           {currentView === 'customers' && <Customers />}
         </div>
