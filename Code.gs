@@ -222,13 +222,33 @@ function doGet(e) {
         result.devis = [];
       }
 
-      output.setContent(JSON.stringify({ status: 'ok', ...result }));
+      var jsonString = JSON.stringify({ status: 'ok', ...result });
+      
+      // JSONP support
+      if (e.parameter.callback) {
+        output.setMimeType(ContentService.MimeType.JAVASCRIPT);
+        output.setContent(e.parameter.callback + '(' + jsonString + ')');
+      } else {
+        output.setContent(jsonString);
+      }
     } catch(err) {
-      output.setContent(JSON.stringify({ status: 'error', message: err.toString() }));
+      var errString = JSON.stringify({ status: 'error', message: err.toString() });
+      if (e && e.parameter && e.parameter.callback) {
+        output.setMimeType(ContentService.MimeType.JAVASCRIPT);
+        output.setContent(e.parameter.callback + '(' + errString + ')');
+      } else {
+        output.setContent(errString);
+      }
     }
   } else {
     // Simple ping
-    output.setContent(JSON.stringify({ status: 'ok', version: '2.0' }));
+    var pingString = JSON.stringify({ status: 'ok', version: '2.0' });
+    if (e && e.parameter && e.parameter.callback) {
+      output.setMimeType(ContentService.MimeType.JAVASCRIPT);
+      output.setContent(e.parameter.callback + '(' + pingString + ')');
+    } else {
+      output.setContent(pingString);
+    }
   }
 
   return output;

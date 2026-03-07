@@ -197,39 +197,67 @@ export default function SyncManager({ isOnline }) {
     );
 }
 
-/* ── Fonction utilitaire exportée pour sync entrante depuis App.jsx ── */
 export async function syncFromCloud(saveOrderFn, saveDevisFn) {
-    try {
-        const res = await fetch(`${GOOGLE_SCRIPT_URL}?action=getData`, {
-            method: 'GET',
-            mode: 'cors',
-        });
-        if (!res.ok) return { success: false };
-        const data = await res.json();
+    return new Promise((resolve, reject) => {
+        const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+        const timeout = setTimeout(() => {
+            cleanup();
+            console.warn('Sync cloud entrante timeout.');
+            resolve({ success: false });
+        }, 15000); // 15s timeout
 
-        // Merge commandes
-        if (data.commandes && Array.isArray(data.commandes)) {
-            const local = await getOrders();
-            const localIds = new Set(local.map(o => String(o.id)));
-            for (const order of data.commandes) {
-                if (!localIds.has(String(order.id))) {
-                    await saveOrderFn(order);
-                }
+        window[callbackName] = async function (data) {
+            clearTimeout(timeout);
+            cleanup();
+            if (!data || data.status !== 'ok') {
+                console.warn('Sync cloud entrante retour incorrect:', data);
+                return resolve({ success: false });
             }
-        }
-        // Merge devis
-        if (data.devis && Array.isArray(data.devis)) {
-            const local = await getDevis();
-            const localIds = new Set(local.map(d => String(d.id)));
-            for (const d of data.devis) {
-                if (!localIds.has(String(d.id))) {
-                    await saveDevisFn(d);
+
+            try {
+                // Merge commandes
+                if (data.commandes && Array.isArray(data.commandes)) {
+                    const local = await getOrders();
+                    const localIds = new Set(local.map(o => String(o.id)));
+                    for (const order of data.commandes) {
+                        if (!localIds.has(String(order.id))) {
+                            await saveOrderFn(order);
+                        }
+                    }
                 }
+                // Merge devis
+                if (data.devis && Array.isArray(data.devis)) {
+                    const local = await getDevis();
+                    const localIds = new Set(local.map(d => String(d.id)));
+                    for (const d of data.devis) {
+                        if (!localIds.has(String(d.id))) {
+                            await saveDevisFn(d);
+                        }
+                    }
+                }
+                resolve({ success: true, commandes: data.commandes?.length || 0, devis: data.devis?.length || 0 });
+            } catch (err) {
+                console.warn('Erreur durant la fusion locale:', err);
+                resolve({ success: false });
             }
+        };
+
+        const script = document.createElement('script');
+        script.src = `${GOOGLE_SCRIPT_URL}?action=getData&callback=${callbackName}`;
+        script.id = callbackName;
+        script.onerror = () => {
+            clearTimeout(timeout);
+            cleanup();
+            console.warn('Sync cloud entrante script erreur.');
+            resolve({ success: false });
+        };
+
+        function cleanup() {
+            delete window[callbackName];
+            const el = document.getElementById(callbackName);
+            if (el) el.remove();
         }
-        return { success: true, commandes: data.commandes?.length || 0, devis: data.devis?.length || 0 };
-    } catch (err) {
-        console.warn('Sync cloud entrante échouée (probablement hors-ligne):', err.message);
-        return { success: false };
-    }
+
+        document.body.appendChild(script);
+    });
 }
