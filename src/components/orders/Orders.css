@@ -1408,3 +1408,131 @@
     opacity: 0.4;
     cursor: not-allowed;
 }
+
+/* ─── Inline Planning Panel ─── */
+.plan-inline-panel {
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.plan-inline-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #4338ca;
+}
+
+.plan-inline-hint {
+    font-size: 0.85rem;
+    color: #4338ca;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.plan-inline-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.plan-inline-date {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1.5px solid #a5b4fc;
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    background: white;
+    color: var(--color-text);
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.plan-inline-date:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.plan-suggest-btn {
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    background: white;
+    border: 1.5px solid #a5b4fc;
+    color: #4338ca;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+}
+
+.plan-suggest-btn:hover {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: white;
+}
+
+.plan-inline-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.plan-inline-cancel {
+    padding: 9px 18px;
+    border-radius: var(--radius-md);
+    background: white;
+    border: 1px solid #c7d2fe;
+    color: #6366f1;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.plan-inline-cancel:hover {
+    background: #f0f0f0;
+}
+
+.plan-inline-confirm {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    border-radius: var(--radius-md);
+    background: #6366f1;
+    border: none;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.plan-inline-confirm:hover:not(:disabled) {
+    background: #4f46e5;
+}
+
+.plan-inline-confirm:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}

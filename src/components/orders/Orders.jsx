@@ -452,10 +452,29 @@ function OrderDrawer({ open, onClose, onSave, prefillDate = '' }) {
 function OrderCard({ order, onStatusChange, onDelete, onSendToPlanning }) {
     const status = order.status || 'en_attente';
     const color = STATUS_COLORS[status] || '#f59e0b';
+    const [showPlanPanel, setShowPlanPanel] = useState(false);
+    const [prodDate, setProdDate] = useState('');
 
     const fmt = (dateStr) => dateStr
         ? new Date(dateStr + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
         : null;
+
+    const openPanel = () => {
+        setProdDate(order.productionStartDate || '');
+        setShowPlanPanel(true);
+    };
+
+    const suggestJMoins1 = () => {
+        if (!order.pickupDate) return;
+        const d = new Date(order.pickupDate + 'T12:00:00');
+        d.setDate(d.getDate() - 1);
+        setProdDate(d.toISOString().slice(0, 10));
+    };
+
+    const handleConfirm = () => {
+        onSendToPlanning(order, prodDate);
+        setShowPlanPanel(false);
+    };
 
     return (
         <div className="order-card">
@@ -478,7 +497,7 @@ function OrderCard({ order, onStatusChange, onDelete, onSendToPlanning }) {
                 <div className="order-meta">
                     <Clock size={14} />
                     <span>Retrait : <strong>{fmt(order.pickupDate) || 'Non précisé'}</strong>
-                        {order.pickupTime && <span style={{ marginLeft: 6, color: 'var(--color-primary)' }}>à {order.pickupTime}</span>}
+                        {order.pickupTime && <span style={{ marginLeft: 6, color: 'var(--color-primary)' }}> à {order.pickupTime}</span>}
                     </span>
                 </div>
                 {order.productionStartDate && (
@@ -492,18 +511,52 @@ function OrderCard({ order, onStatusChange, onDelete, onSendToPlanning }) {
                 )}
             </div>
 
-            {order.totalPrice > 0 && (
-                <div className="order-total-row">
-                    Reste à percevoir : <strong style={{ color: 'var(--color-primary-dark)' }}>{Math.max(0, order.totalPrice - (order.deposit || 0)).toFixed(2)} €</strong>
-                    <span style={{ marginLeft: 8, color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>(Total : {parseFloat(order.totalPrice).toFixed(2)} €)</span>
-                </div>
-            )}
+            {
+                order.totalPrice > 0 && (
+                    <div className="order-total-row">
+                        Reste à percevoir : <strong style={{ color: 'var(--color-primary-dark)' }}>{Math.max(0, order.totalPrice - (order.deposit || 0)).toFixed(2)} €</strong>
+                        <span style={{ marginLeft: 8, color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>(Total : {parseFloat(order.totalPrice).toFixed(2)} €)</span>
+                    </div>
+                )
+            }
             {order.notes && <div className="order-notes">📝 {order.notes}</div>}
 
+            {/* ── Panel inline de planification ── */}
+            {
+                showPlanPanel && (
+                    <div className="plan-inline-panel">
+                        <div className="plan-inline-title"><Factory size={15} /> Planifier la production</div>
+                        <p className="plan-inline-hint">
+                            Quand commencer à préparer la commande de <strong>{order.customerName}</strong>
+                            {order.pickupDate && <> (retrait le <strong>{fmt(order.pickupDate)}</strong>)</>} ?
+                        </p>
+                        <div className="plan-inline-row">
+                            <input
+                                type="date"
+                                value={prodDate}
+                                onChange={e => setProdDate(e.target.value)}
+                                className="plan-inline-date"
+                            />
+                            {order.pickupDate && (
+                                <button className="plan-suggest-btn" onClick={suggestJMoins1} title="La veille du retrait">
+                                    Veille du retrait
+                                </button>
+                            )}
+                        </div>
+                        <div className="plan-inline-actions">
+                            <button className="plan-inline-cancel" onClick={() => setShowPlanPanel(false)}>Annuler</button>
+                            <button className="plan-inline-confirm" onClick={handleConfirm} disabled={!prodDate}>
+                                <Factory size={14} /> Envoyer en planning
+                            </button>
+                        </div>
+                    </div>
+                )
+            }
+
             <div className="order-actions">
-                {(status === 'en_attente' || status === 'pending') && (
+                {(status === 'en_attente' || status === 'pending') && !showPlanPanel && (
                     <button className="btn-action" style={{ background: '#eef2ff', color: '#6366f1', border: '1px solid #c7d2fe' }}
-                        onClick={() => onSendToPlanning(order)}>
+                        onClick={openPanel}>
                         <Factory size={15} /> Envoyer en planning
                     </button>
                 )}
@@ -521,7 +574,7 @@ function OrderCard({ order, onStatusChange, onDelete, onSendToPlanning }) {
                     <span className="collected-badge">✅ Commande terminée</span>
                 )}
             </div>
-        </div>
+        </div >
     );
 }
 
@@ -642,12 +695,7 @@ export default function Orders() {
     const handleStatusChange = async (order, nextStatus) => { await saveOrder({ ...order, status: nextStatus }); loadOrders(); };
     const handleDelete = async (id) => { if (confirm('Supprimer cette commande ?')) { await deleteOrder(id); loadOrders(); } };
 
-    const handleSendToPlanning = async (order) => {
-        const prodDate = prompt(
-            `Date de début de production pour ${order.customerName}\n(Retrait prévu : ${order.pickupDate || 'non défini'})\n\nSaisir la date (AAAA-MM-JJ) :`,
-            order.productionStartDate || ''
-        );
-        if (prodDate === null) return; // annulé
+    const handleSendToPlanning = async (order, prodDate) => {
         await saveOrder({ ...order, productionStartDate: prodDate, status: 'en_production' });
         loadOrders();
         window.dispatchEvent(new Event('planningUpdated'));
