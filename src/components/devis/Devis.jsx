@@ -240,7 +240,7 @@ function DevisDrawer({ open, onClose, onSave, editData = null }) {
                                 <button className={`cat-chip ${activeCat === 'all' ? 'active' : ''}`} onClick={() => setActiveCat('all')}>Tous</button>
                                 {categories.map(c => (
                                     <button key={c.id} className={`cat-chip ${activeCat === c.id ? 'active' : ''}`} onClick={() => setActiveCat(c.id)}>
-                                        {c.name}
+                                        {c.icon} {c.name}
                                     </button>
                                 ))}
                             </div>
