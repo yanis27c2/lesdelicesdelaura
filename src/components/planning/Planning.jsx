@@ -438,6 +438,7 @@ export default function Production() {
                 {viewMode === 'list' ? (
                     <div style={{ display: 'flex', gap: '8px' }}>
                         {[
+                            { key: 'en_attente', label: '⏳ En attente' },
                             { key: 'active', label: 'En cours' },
                             { key: 'late', label: '⚠️ En retard' },
                             { key: 'all', label: 'Toutes' },
@@ -514,6 +515,7 @@ export default function Production() {
                             const d = o.productionStartDate ? o.productionStartDate.split('T')[0] : null;
                             if (filterDate && d !== filterDate) return false;
                             const status = o.status || 'en_attente';
+                            if (filter === 'en_attente') return status === 'en_attente' || status === 'pending';
                             if (filter === 'active') return !['recupere', 'collected'].includes(status);
                             if (filter === 'late') return d < today && !['recupere', 'collected'].includes(status);
                             return true;
