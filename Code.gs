@@ -173,6 +173,28 @@ function doPost(e) {
       results.devis = data.devis.length + ' devis mis à jour';
     }
 
+    // ---- 7. CLIENTS (upsert par ID) ----
+    if (data.customers && data.customers.length > 0) {
+      var sheetClients = getOrCreateSheet(ss, 'Clients', [
+        'ID', 'Date Création', 'Nom Client', 'Téléphone', 'Email',
+        'Adresse', 'Nombre de Visites', 'Total Dépensé (€)', 'Dernière Visite', 'Notes'
+      ]);
+      data.customers.forEach(function(c) {
+        var createdDate = c.createdAt
+          ? Utilities.formatDate(new Date(c.createdAt), 'Europe/Paris', 'dd/MM/yyyy HH:mm')
+          : '';
+        var lastVisit = c.lastVisit
+          ? Utilities.formatDate(new Date(c.lastVisit), 'Europe/Paris', 'dd/MM/yyyy HH:mm')
+          : '';
+        var row = [
+          c.id, createdDate, c.name || '', c.phone || '', c.email || '',
+          c.address || '', c.visits || 0, c.totalSpent || 0, lastVisit, c.notes || ''
+        ];
+        upsertRow(sheetClients, c.id, row);
+      });
+      results.customers = data.customers.length + ' clients mis à jour';
+    }
+
     output.setContent(JSON.stringify({ status: 'success', results: results }));
 
   } catch(error) {

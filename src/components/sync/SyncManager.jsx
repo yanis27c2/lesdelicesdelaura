@@ -5,7 +5,7 @@ import {
     getExpenses, getZReports, getOrders, getDevis,
     clearAllSales, clearAllExpenses, clearAllZReports,
     saveOrder, saveDevis, getUnsyncedStockHistory, clearStockHistory,
-    saveProduct
+    saveProduct, getCustomers
 } from '../../db/indexedDB';
 import './SyncManager.css';
 
@@ -67,16 +67,16 @@ export default function SyncManager({ isOnline }) {
         setSyncResult(null);
 
         try {
-            const [ventes, products, categories, depenses, clotures, commandes, devis, stock_history] = await Promise.all([
+            const [ventes, products, categories, depenses, clotures, commandes, devis, stock_history, customers] = await Promise.all([
                 getAllSales(), getProducts(), getCategories(),
-                getExpenses(), getZReports(), getOrders(), getDevis(), getUnsyncedStockHistory()
+                getExpenses(), getZReports(), getOrders(), getDevis(), getUnsyncedStockHistory(), getCustomers()
             ]);
 
             const catMap = {};
             categories.forEach(c => { catMap[c.id] = c.name; });
             const catalogue = products.map(p => ({ ...p, categoryName: catMap[p.categoryId] || p.categoryId }));
 
-            const payload = { ventes, catalogue, depenses, clotures, commandes, devis, stock_history };
+            const payload = { ventes, catalogue, depenses, clotures, commandes, devis, stock_history, customers };
 
             // fetch() au lieu de sendBeacon → on a la réponse du serveur
             const response = await fetch(GOOGLE_SCRIPT_URL, {
