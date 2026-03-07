@@ -90,50 +90,49 @@ function App() {
 
   return (
     <div className="app-container">
-      <main className="pos-main">
-        <header className="pos-header">
-          <div className="brand">
-            <Store color="var(--color-primary)" size={28} />
-            <h1>Les délices de Laura</h1>
+      {/* Global header */}
+      <header className="pos-header">
+        <div className="brand">
+          <Store color="var(--color-primary)" size={28} />
+          <h1>Les délices de Laura</h1>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div className={`status-badge ${isOnline ? 'online' : 'offline'}`}>
+            <div className="status-badge-dot"></div>
+            {isOnline ? (
+              <><Wifi size={16} /> En ligne</>
+            ) : (
+              <><WifiOff size={16} /> Hors ligne (Local)</>
+            )}
           </div>
+          <SyncManager isOnline={isOnline} />
+        </div>
+      </header>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div className={`status-badge ${isOnline ? 'online' : 'offline'}`}>
-              <div className="status-badge-dot"></div>
-              {isOnline ? (
-                <><Wifi size={16} /> En ligne</>
-              ) : (
-                <><WifiOff size={16} /> Hors ligne (Local)</>
-              )}
-            </div>
+      {/* Navigation Bar */}
+      <nav className="app-nav">
+        <button className={`nav-item ${currentView === 'pos' ? 'active' : ''}`} onClick={() => setCurrentView('pos')}>
+          <LayoutGrid size={18} /> Caisse
+        </button>
+        <button className={`nav-item ${currentView === 'admin' ? 'active' : ''}`} onClick={() => setCurrentView('admin')}>
+          <Package size={18} /> Catalogue
+        </button>
+        <button className={`nav-item ${currentView === 'stats' ? 'active' : ''}`} onClick={() => setCurrentView('stats')}>
+          <BarChart3 size={18} /> Stats
+        </button>
+        <button className={`nav-item ${currentView === 'orders' ? 'active' : ''}`} onClick={() => setCurrentView('orders')}>
+          <ClipboardList size={18} /> Commandes
+        </button>
+        <button className={`nav-item ${currentView === 'devis' ? 'active' : ''}`} onClick={() => setCurrentView('devis')}>
+          <FileText size={18} /> Devis
+        </button>
+        <button className={`nav-item ${currentView === 'zreport' ? 'active' : ''}`} onClick={() => setCurrentView('zreport')}>
+          <Calculator size={18} /> Clôture
+        </button>
+      </nav>
 
-            <SyncManager isOnline={isOnline} />
-          </div>
-        </header>
-
-        {/* Navigation Bar */}
-        <nav className="app-nav">
-          <button className={`nav-item ${currentView === 'pos' ? 'active' : ''}`} onClick={() => setCurrentView('pos')}>
-            <LayoutGrid size={18} /> Caisse
-          </button>
-          <button className={`nav-item ${currentView === 'admin' ? 'active' : ''}`} onClick={() => setCurrentView('admin')}>
-            <Package size={18} /> Catalogue
-          </button>
-          <button className={`nav-item ${currentView === 'stats' ? 'active' : ''}`} onClick={() => setCurrentView('stats')}>
-            <BarChart3 size={18} /> Stats
-          </button>
-          <button className={`nav-item ${currentView === 'orders' ? 'active' : ''}`} onClick={() => setCurrentView('orders')}>
-            <ClipboardList size={18} /> Commandes
-          </button>
-          <button className={`nav-item ${currentView === 'devis' ? 'active' : ''}`} onClick={() => setCurrentView('devis')}>
-            <FileText size={18} /> Devis
-          </button>
-
-          <button className={`nav-item ${currentView === 'zreport' ? 'active' : ''}`} onClick={() => setCurrentView('zreport')}>
-            <Calculator size={18} /> Clôture
-          </button>
-        </nav>
-
+      {/* Content + optional cart sidebar */}
+      <div className="pos-view">
         <div className="pos-content">
           {currentView === 'pos' && <ProductGrid onAddToCart={addToCart} />}
           {currentView === 'admin' && <ProductManager />}
@@ -143,18 +142,18 @@ function App() {
           {currentView === 'devis' && <Devis />}
           {currentView === 'customers' && <Customers />}
         </div>
-      </main>
 
-      {currentView === 'pos' && (
-        <aside className="pos-sidebar">
-          <Cart
-            items={cartItems}
-            updateQuantity={updateQuantity}
-            clearCart={clearCart}
-            onCheckout={handleCheckout}
-          />
-        </aside>
-      )}
+        {currentView === 'pos' && (
+          <aside className="pos-sidebar">
+            <Cart
+              items={cartItems}
+              updateQuantity={updateQuantity}
+              clearCart={clearCart}
+              onCheckout={handleCheckout}
+            />
+          </aside>
+        )}
+      </div>
     </div>
   );
 }

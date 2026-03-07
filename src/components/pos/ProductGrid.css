@@ -1,38 +1,42 @@
+/* ═══════════════════════════════════════════════════════
+   ProductGrid — Styles
+   ═══════════════════════════════════════════════════════ */
+
 .product-grid-container {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     height: 100%;
     overflow: hidden;
     min-height: 0;
-    min-width: 0;
     width: 100%;
+    box-sizing: border-box;
 }
 
+/* ── Category tabs ── */
 .category-tabs {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     overflow-x: auto;
-    padding-bottom: 8px;
+    padding-bottom: 4px;
     -ms-overflow-style: none;
-    /* IE and Edge */
     scrollbar-width: none;
-    /* Firefox */
+    flex-shrink: 0;
 }
 
 .category-tabs::-webkit-scrollbar {
     display: none;
-    /* Chrome, Safari and Opera */
 }
 
 .category-tab {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px 24px;
+    gap: 6px;
+    padding: 8px 18px;
     border-radius: var(--radius-lg);
     background-color: var(--color-surface);
     color: var(--color-text-muted);
+    font-size: 0.875rem;
     font-weight: 500;
     white-space: nowrap;
     box-shadow: var(--shadow-sm);
@@ -45,82 +49,102 @@
 }
 
 .cat-icon {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
 }
 
-.products-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
+/* ── Products grid wrapper (centres the 3-col grid) ── */
+.products-grid-wrapper {
     flex: 1;
     min-height: 0;
-    min-width: 0;
-    width: 100%;
     overflow-y: auto;
     overflow-x: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 4px 0 8px 0;
+}
+
+/* ── Products grid: fixed 3 columns, max-width to stay centred ── */
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(140px, 220px));
+    gap: 14px;
+    width: 100%;
+    max-width: 720px;
     align-content: start;
-    padding: 4px 8px 8px 8px;
     box-sizing: border-box;
 }
 
-/* Tablette (iPad portrait ≤900px) : 3 colonnes */
+/* Tablette portrait / iPad (≤900px) : 2 colonnes */
 @media (max-width: 900px) {
     .products-grid {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 12px;
-        padding: 4px 4px 8px 4px;
+        grid-template-columns: repeat(2, minmax(120px, 200px));
+        max-width: 440px;
+        gap: 10px;
     }
 }
 
-/* Mobile (≤480px) : 2 colonnes */
+/* Mobile (≤480px) : 2 colonnes compactes */
 @media (max-width: 480px) {
     .products-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-        padding: 4px 2px 8px 2px;
+        grid-template-columns: repeat(2, minmax(100px, 1fr));
+        max-width: 100%;
+        gap: 8px;
     }
 }
 
+/* ── Product card ── */
 .product-card {
     aspect-ratio: 1;
     border-radius: var(--radius-md);
-    padding: 16px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     text-align: center;
     box-shadow: var(--shadow-sm);
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
     overflow: hidden;
     position: relative;
     width: 100%;
     box-sizing: border-box;
+    cursor: pointer;
+}
+
+.product-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
 }
 
 .product-card:active {
-    transform: scale(0.95);
+    transform: scale(0.93);
 }
 
+/* ── Product info pill ── */
 .product-info {
-    background: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(8px);
-    padding: 12px;
+    padding: 8px 10px;
     border-radius: var(--radius-sm);
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
     align-items: center;
     width: 100%;
+    box-sizing: border-box;
 }
 
 .product-name {
     font-weight: 600;
-    font-size: 1.1rem;
+    font-size: 0.9rem;
     line-height: 1.2;
+    word-break: break-word;
+    hyphens: auto;
 }
 
 .product-price {
     font-weight: 700;
+    font-size: 0.85rem;
     color: var(--color-primary-dark);
 }

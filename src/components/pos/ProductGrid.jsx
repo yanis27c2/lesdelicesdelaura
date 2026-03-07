@@ -53,31 +53,33 @@ export default function ProductGrid({ onAddToCart }) {
             </div>
 
             {/* Products Grid */}
-            <div className="products-grid">
-                {filteredProducts.map(product => {
-                    const isOutOfStock = product.stock <= 0;
-                    return (
-                        <button
-                            key={product.id}
-                            className={`product-card animate-slide-up ${isOutOfStock ? 'out-of-stock' : ''}`}
-                            style={{ backgroundColor: isOutOfStock ? '#f3f4f6' : product.color }}
-                            onClick={() => !isOutOfStock && onAddToCart(product)}
-                            disabled={isOutOfStock}
-                        >
-                            <div className="product-info">
-                                <span className="product-name">{product.name}</span>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                    <span className="product-price">{product.price.toFixed(2)} €</span>
-                                    {product.stock !== undefined && (
-                                        <span style={{ fontSize: '0.8rem', color: isOutOfStock ? '#ef4444' : '#6b7280', fontWeight: 600 }}>
-                                            Stock: {product.stock}
-                                        </span>
-                                    )}
+            <div className="products-grid-wrapper">
+                <div className="products-grid">
+                    {filteredProducts.map(product => {
+                        const isOutOfStock = product.stock <= 0;
+                        return (
+                            <button
+                                key={product.id}
+                                className={`product-card animate-slide-up ${isOutOfStock ? 'out-of-stock' : ''}`}
+                                style={{ backgroundColor: isOutOfStock ? '#f3f4f6' : product.color }}
+                                onClick={() => !isOutOfStock && onAddToCart(product)}
+                                disabled={isOutOfStock}
+                            >
+                                <div className="product-info">
+                                    <span className="product-name">{product.name}</span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                        <span className="product-price">{product.price.toFixed(2)} €</span>
+                                        {product.stock !== undefined && (
+                                            <span style={{ fontSize: '0.75rem', color: isOutOfStock ? '#ef4444' : '#6b7280', fontWeight: 600 }}>
+                                                Stock: {product.stock}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        </button>
-                    )
-                })}
+                            </button>
+                        )
+                    })}
+                </div>
             </div>
         </div>
     );
