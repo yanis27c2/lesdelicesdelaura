@@ -355,11 +355,28 @@ export const getOrders = async () => {
 export const saveOrder = async (orderData) => {
     await initDB();
     return new Promise((resolve, reject) => {
-        const transaction = db.transaction([STORE_ORDERS], 'readwrite');
+        const transaction = db.transaction([STORE_ORDERS, STORE_PRODUCTS], 'readwrite');
         const store = transaction.objectStore(STORE_ORDERS);
-        const request = orderData.id
-            ? store.put(orderData)
-            : store.add({ ...orderData, createdAt: new Date().toISOString(), status: 'pending' });
+        const productsStore = transaction.objectStore(STORE_PRODUCTS);
+
+        const isNew = !orderData.id;
+        const request = isNew
+            ? store.add({ ...orderData, createdAt: new Date().toISOString(), status: orderData.status || 'pending' })
+            : store.put(orderData);
+
+        if (isNew && orderData.type !== 'reassort' && orderData.parsedItems) {
+            orderData.parsedItems.forEach(item => {
+                const getReq = productsStore.get(item.id);
+                getReq.onsuccess = (e) => {
+                    const product = e.target.result;
+                    if (product && product.stock !== undefined) {
+                        product.stock = Math.max(0, product.stock - item.qty);
+                        productsStore.put(product);
+                    }
+                };
+            });
+        }
+
         request.onsuccess = e => resolve(e.target.result);
         request.onerror = e => reject(e.target.error);
     });

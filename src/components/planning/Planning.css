@@ -402,6 +402,116 @@
     line-height: 1.6;
 }
 
+/* ── Master Tabs (Commandes / Réassort) ── */
+.master-tabs {
+    display: flex;
+    gap: 12px;
+    background: var(--color-surface);
+    padding: 8px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 24px;
+}
+
+.master-tab {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.master-tab:hover {
+    background: var(--color-background);
+}
+
+.master-tab.active {
+    background: var(--color-primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+.tab-badge {
+    background: #ef4444;
+    color: white;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 700;
+}
+
+/* ── Réassort Section ── */
+.reassort-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.1rem;
+    color: var(--color-text);
+    margin-bottom: 16px;
+}
+
+.reassort-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.reassort-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.r-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.05rem;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 10px;
+}
+
+.r-card-body {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+}
+
+.r-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.r-card-actions input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
     .planning-container {

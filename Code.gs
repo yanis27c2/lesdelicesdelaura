@@ -54,12 +54,12 @@ function doPost(e) {
     // ---- 2. CATALOGUE ----
     if (data.catalogue && data.catalogue.length > 0) {
       var sheetCat = getOrCreateSheet(ss, 'Catalogue', [
-        'ID', 'Nom', 'Prix (€)', 'Catégorie', 'Stock', 'Description'
+        'ID', 'Nom', 'Prix (€)', 'Catégorie', 'Stock', 'Seuil Alerte', 'Description'
       ]);
       var lastRow = sheetCat.getLastRow();
       if (lastRow > 1) sheetCat.deleteRows(2, lastRow - 1);
       data.catalogue.forEach(function(p) {
-        sheetCat.appendRow([p.id, p.name, p.price, p.categoryName || p.categoryId, p.stock || 0, p.description || '']);
+        sheetCat.appendRow([p.id, p.name, p.price, p.categoryName || p.categoryId, p.stock || 0, p.alertThreshold || 0, p.description || '']);
       });
       results.catalogue = data.catalogue.length + ' produits mis à jour';
     }

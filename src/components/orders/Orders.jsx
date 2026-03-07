@@ -137,6 +137,7 @@ function OrderDrawer({ open, onClose, onSave, prefillDate = '' }) {
             customerName: form.customerName,
             customerPhone: form.customerPhone,
             items: itemsSummary,
+            parsedItems: form.items,
             totalPrice: effectiveTotal,
             deposit: parseFloat(form.deposit) || 0,
             pickupDate: form.pickupDate,
@@ -682,7 +683,8 @@ export default function Orders() {
 
     const loadOrders = async () => {
         const data = await getOrders();
-        setOrders(data.sort((a, b) => new Date(a.pickupDate || '9999') - new Date(b.pickupDate || '9999')));
+        const clients = data.filter(o => o.type !== 'reassort');
+        setOrders(clients.sort((a, b) => new Date(a.pickupDate || '9999') - new Date(b.pickupDate || '9999')));
     };
 
     useEffect(() => { loadOrders(); }, []);

@@ -70,8 +70,15 @@ export default function ProductGrid({ onAddToCart }) {
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                                         <span className="product-price">{product.price.toFixed(2)} €</span>
                                         {product.stock !== undefined && (
-                                            <span style={{ fontSize: '0.75rem', color: isOutOfStock ? '#ef4444' : '#6b7280', fontWeight: 600 }}>
-                                                Stock: {product.stock}
+                                            <span style={{
+                                                fontSize: '0.75rem',
+                                                color: isOutOfStock ? '#ef4444' : (product.stock <= (product.alertThreshold || 0)) ? '#f59e0b' : '#6b7280',
+                                                fontWeight: 600,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 4
+                                            }}>
+                                                {isOutOfStock ? 'Rupture' : product.stock <= (product.alertThreshold || 0) ? `⚠️ Reste: ${product.stock}` : `Stock: ${product.stock}`}
                                             </span>
                                         )}
                                     </div>

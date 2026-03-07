@@ -12,7 +12,7 @@ export default function ProductManager() {
     const [editingProduct, setEditingProduct] = useState(null);
 
     // Form State
-    const [formData, setFormData] = useState({ name: '', price: '', categoryId: '', stock: '', color: '#fbcfe8' });
+    const [formData, setFormData] = useState({ name: '', price: '', categoryId: '', stock: '', alertThreshold: '', color: '#fbcfe8' });
 
     const loadData = async () => {
         setLoading(true);
@@ -48,11 +48,12 @@ export default function ProductManager() {
                 price: product.price,
                 categoryId: product.categoryId,
                 stock: product.stock !== undefined ? product.stock : 0,
+                alertThreshold: product.alertThreshold !== undefined ? product.alertThreshold : 0,
                 color: product.color || '#fbcfe8'
             });
         } else {
             setEditingProduct(null);
-            setFormData({ name: '', price: '', categoryId: categories[0]?.id || '', stock: '', color: '#fbcfe8' });
+            setFormData({ name: '', price: '', categoryId: categories[0]?.id || '', stock: '', alertThreshold: '', color: '#fbcfe8' });
         }
         setIsModalOpen(true);
     };
@@ -70,6 +71,7 @@ export default function ProductManager() {
             price: parseFloat(formData.price),
             categoryId: formData.categoryId,
             stock: parseInt(formData.stock) || 0,
+            alertThreshold: parseInt(formData.alertThreshold) || 0,
             color: formData.color
         };
 
@@ -140,7 +142,7 @@ export default function ProductManager() {
                                     <td style={{ color: 'var(--color-text-muted)' }}>{cat ? cat.name : 'Inconnue'}</td>
                                     <td style={{ fontWeight: 600, color: 'var(--color-primary-dark)' }}>{product.price.toFixed(2)}</td>
                                     <td>
-                                        <span className={`stock-badge ${product.stock > 10 ? 'ok' : product.stock > 0 ? 'low' : 'out'}`}>
+                                        <span className={`stock-badge ${product.stock > (product.alertThreshold || 0) ? 'ok' : product.stock > 0 ? 'low' : 'out'}`}>
                                             {product.stock || 0}
                                         </span>
                                     </td>
@@ -181,9 +183,13 @@ export default function ProductManager() {
                                     <label>Prix (€)</label>
                                     <input required type="number" step="0.01" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value })} />
                                 </div>
-                                <div className="form-group">
+                                <div className="form-group" style={{ flex: '0.5' }}>
                                     <label>Stock</label>
                                     <input required type="number" value={formData.stock} onChange={e => setFormData({ ...formData, stock: e.target.value })} />
+                                </div>
+                                <div className="form-group" style={{ flex: '0.5' }}>
+                                    <label>Seuil alerte</label>
+                                    <input required type="number" value={formData.alertThreshold} onChange={e => setFormData({ ...formData, alertThreshold: e.target.value })} />
                                 </div>
                             </div>
 
