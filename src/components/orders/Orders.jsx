@@ -689,7 +689,11 @@ export default function Orders() {
     useEffect(() => {
         const handler = () => loadOrders();
         window.addEventListener('devisConverted', handler);
-        return () => window.removeEventListener('devisConverted', handler);
+        window.addEventListener('catalogUpdated', handler);
+        return () => {
+            window.removeEventListener('devisConverted', handler);
+            window.removeEventListener('catalogUpdated', handler);
+        };
     }, []);
 
     const handleStatusChange = async (order, nextStatus) => { await saveOrder({ ...order, status: nextStatus }); loadOrders(); };

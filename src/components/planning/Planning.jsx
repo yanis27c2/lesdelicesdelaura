@@ -145,7 +145,11 @@ export default function Planning() {
         load();
         const handler = () => load();
         window.addEventListener('planningUpdated', handler);
-        return () => window.removeEventListener('planningUpdated', handler);
+        window.addEventListener('catalogUpdated', handler);
+        return () => {
+            window.removeEventListener('planningUpdated', handler);
+            window.removeEventListener('catalogUpdated', handler);
+        };
     }, []);
 
     const handleStatusChange = async (order, nextStatus) => {

@@ -586,7 +586,12 @@ export default function Devis() {
         setDevisList(repaired.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)));
     };
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => {
+        load();
+        const handler = () => load();
+        window.addEventListener('catalogUpdated', handler);
+        return () => window.removeEventListener('catalogUpdated', handler);
+    }, []);
 
     const handleSave = async (data) => {
         const id = await saveDevis(data);
