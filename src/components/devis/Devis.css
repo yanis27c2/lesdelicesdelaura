@@ -258,6 +258,15 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
+.devis-card.clickable-card {
+    cursor: pointer;
+}
+
+.devis-card.clickable-card:hover {
+    border-color: #fbcfe8;
+    box-shadow: 0 8px 24px rgba(236, 72, 153, 0.12);
+}
+
 .devis-card.expired {
     opacity: 0.75;
 }

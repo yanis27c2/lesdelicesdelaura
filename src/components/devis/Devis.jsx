@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
     FileText, Plus, Send, CheckCircle2, XCircle, Clock, Trash2,
     User, Package, Euro, Search, Minus, ChevronRight, ChevronLeft,
-    X, AlertTriangle, ShoppingBag, FileCheck, Copy, ArrowRight
+    X, AlertTriangle, ShoppingBag, FileCheck, Copy, ArrowRight, Edit3
 } from 'lucide-react';
 import { getDevis, saveDevis, deleteDevis, getCustomers, getProducts, getCategories, saveOrder } from '../../db/indexedDB';
 import './Devis.css';
@@ -408,8 +408,23 @@ function DevisCard({ devis, onStatusChange, onDelete, onConvertToOrder, onEdit }
     const isExpired = days !== null && days < 0 && status !== 'refuse' && status !== 'converti';
     const isUrgent = days !== null && days >= 0 && days <= 3 && status === 'envoye';
 
+    const isEditable = ['brouillon', 'envoye'].includes(status);
+
+    const handleCardClick = (e) => {
+        // Prevent triggering if clicking on action buttons or inner elements
+        if (e.target.closest('.btn-icon') || e.target.closest('.devis-actions') || e.target.closest('.devis-status-badge')) {
+            return;
+        }
+        if (isEditable) {
+            onEdit(devis);
+        }
+    };
+
     return (
-        <div className={`devis-card ${status} ${isExpired ? 'expired' : ''} ${isUrgent ? 'urgent-card' : ''}`}>
+        <div
+            className={`devis-card ${status} ${isExpired ? 'expired' : ''} ${isUrgent ? 'urgent-card' : ''} ${isEditable ? 'clickable-card' : ''}`}
+            onClick={handleCardClick}
+        >
             {/* Card Header */}
             <div className="devis-card-header">
                 <div className="devis-card-left">
@@ -422,10 +437,14 @@ function DevisCard({ devis, onStatusChange, onDelete, onConvertToOrder, onEdit }
                         {cfg.icon} {cfg.label}
                     </div>
                     <div className="devis-card-actions-icons">
-                        {['brouillon', 'envoye'].includes(status) && (
-                            <button className="btn-icon edit" onClick={() => onEdit(devis)} title="Modifier"><Copy size={15} /></button>
+                        {isEditable && (
+                            <button className="btn-icon edit" onClick={(e) => { e.stopPropagation(); onEdit(devis); }} title="Modifier">
+                                <Edit3 size={15} />
+                            </button>
                         )}
-                        <button className="btn-icon delete" onClick={() => onDelete(devis.id)} title="Supprimer"><Trash2 size={15} /></button>
+                        <button className="btn-icon delete" onClick={(e) => { e.stopPropagation(); onDelete(devis.id); }} title="Supprimer">
+                            <Trash2 size={15} />
+                        </button>
                     </div>
                 </div>
             </div>
