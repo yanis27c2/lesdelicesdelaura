@@ -96,10 +96,32 @@ function doPost(e) {
       results.clotures = data.clotures.length + ' clôtures ajoutées';
     }
 
+    // ---- X. STOCK HISTORY ----
+    if (data.stock_history && data.stock_history.length > 0) {
+      var sheetStock = getOrCreateSheet(ss, 'Stock', [
+        'Date', 'Heure', 'ID Produit', 'Nom Produit', 'Type Mouvement',
+        'Variation', 'Nouveau Stock', 'ID Référence'
+      ]);
+      data.stock_history.forEach(function(sh) {
+        var dt = new Date(sh.timestamp);
+        sheetStock.appendRow([
+          Utilities.formatDate(dt, 'Europe/Paris', 'dd/MM/yyyy'),
+          Utilities.formatDate(dt, 'Europe/Paris', 'HH:mm:ss'),
+          sh.productId || '',
+          sh.name || '',
+          sh.type || 'Inconnu',
+          sh.quantityChange || 0,
+          sh.newStock !== undefined ? sh.newStock : '',
+          sh.referenceId || ''
+        ]);
+      });
+      results.stock_history = data.stock_history.length + ' mouvements de stock ajoutés';
+    }
+
     // ---- 5. COMMANDES (upsert par ID) ----
     if (data.commandes && data.commandes.length > 0) {
       var sheetCmd = getOrCreateSheet(ss, 'Commandes', [
-        'ID', 'Date Création', 'Nom Client', 'Téléphone',
+        'ID', 'Type', 'Date Création', 'Nom Client', 'Téléphone',
         'Date Retrait', 'Heure Retrait', 'Début Production',
         'Total (€)', 'Acompte (€)', 'Reste à Payer (€)',
         'Statut', 'Notes', 'Détail Articles'
@@ -111,7 +133,7 @@ function doPost(e) {
         var total = parseFloat(c.totalPrice) || 0;
         var deposit = parseFloat(c.deposit) || 0;
         var row = [
-          c.id, createdAt,
+          c.id, c.type || 'Standard', createdAt,
           c.customerName || '', c.customerPhone || '',
           c.pickupDate || '', c.pickupTime || '', c.productionStartDate || '',
           total, deposit, Math.max(0, total - deposit),
@@ -222,7 +244,34 @@ function doGet(e) {
         result.devis = [];
       }
 
-      var jsonString = JSON.stringify({ status: 'ok', ...result });
+      // ── Catalogue (pour synchro des stocks modifiés dans Sheets) ──
+      var sheetCat = ss.getSheetByName('Catalogue');
+      if (sheetCat && sheetCat.getLastRow() > 1) {
+        var catData = sheetCat.getDataRange().getValues();
+        var catalogue = [];
+        for (var k = 1; k < catData.length; k++) {
+          var crow = catData[k];
+          catalogue.push({
+            id: crow[0],
+            name: crow[1],
+            price: crow[2],
+            categoryName: crow[3],
+            stock: crow[4],
+            alertThreshold: crow[5],
+            description: crow[6]
+          });
+        }
+        result.catalogue = catalogue;
+      } else {
+        result.catalogue = [];
+      }
+
+      var jsonString = JSON.stringify({ 
+        status: 'ok', 
+        commandes: result.commandes || [],
+        devis: result.devis || [],
+        catalogue: result.catalogue || []
+      });
       
       // JSONP support
       if (e.parameter.callback) {

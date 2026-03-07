@@ -4,7 +4,8 @@ import {
     getAllSales, getProducts, getCategories,
     getExpenses, getZReports, getOrders, getDevis,
     clearAllSales, clearAllExpenses, clearAllZReports,
-    saveOrder, saveDevis
+    saveOrder, saveDevis, getUnsyncedStockHistory, clearStockHistory,
+    saveProduct
 } from '../../db/indexedDB';
 import './SyncManager.css';
 
@@ -21,12 +22,11 @@ export default function SyncManager({ isOnline }) {
 
     const countPending = async () => {
         try {
-            const [sales, depenses, clotures] = await Promise.all([
-                getAllSales(), getExpenses(), getZReports()
+            const [sales, depenses, clotures, stockHistory] = await Promise.all([
+                getAllSales(), getExpenses(), getZReports(), getUnsyncedStockHistory()
             ]);
             // Commandes et devis ne sont PAS comptés comme "à supprimer" —
-            // ils sont toujours envoyés mais restent en local.
-            setPendingCount(sales.length + depenses.length + clotures.length);
+            setPendingCount(sales.length + depenses.length + clotures.length + stockHistory.length);
         } catch (err) {
             console.error('Erreur comptage données', err);
         }
@@ -58,7 +58,7 @@ export default function SyncManager({ isOnline }) {
 
         const confirmed = window.confirm(
             `Téléverser les données vers Google Sheets ?\n\n` +
-            `• Ventes, dépenses, clôtures → envoyées puis effacées localement\n` +
+            `• Ventes, mouvements de stock, dépenses, clôtures → envoyées puis effacées localement\n` +
             `• Commandes et devis → copiés dans le Sheet, conservés en local`
         );
         if (!confirmed) return;
@@ -67,16 +67,16 @@ export default function SyncManager({ isOnline }) {
         setSyncResult(null);
 
         try {
-            const [ventes, products, categories, depenses, clotures, commandes, devis] = await Promise.all([
+            const [ventes, products, categories, depenses, clotures, commandes, devis, stock_history] = await Promise.all([
                 getAllSales(), getProducts(), getCategories(),
-                getExpenses(), getZReports(), getOrders(), getDevis()
+                getExpenses(), getZReports(), getOrders(), getDevis(), getUnsyncedStockHistory()
             ]);
 
             const catMap = {};
             categories.forEach(c => { catMap[c.id] = c.name; });
             const catalogue = products.map(p => ({ ...p, categoryName: catMap[p.categoryId] || p.categoryId }));
 
-            const payload = { ventes, catalogue, depenses, clotures, commandes, devis };
+            const payload = { ventes, catalogue, depenses, clotures, commandes, devis, stock_history };
 
             // fetch() au lieu de sendBeacon → on a la réponse du serveur
             const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -93,6 +93,7 @@ export default function SyncManager({ isOnline }) {
                 clearAllSales(),
                 clearAllExpenses(),
                 clearAllZReports(),
+                clearStockHistory()
             ]);
             // Commandes et devis : ON NE SUPPRIME PAS — ils restent en local
 
@@ -124,10 +125,10 @@ export default function SyncManager({ isOnline }) {
         try {
             const result = await syncFromCloud(saveOrder, saveDevis);
             if (result.success) {
-                showResult({ success: true, message: `Cloud récupéré : +${result.commandes} commandes, +${result.devis} devis` });
+                showResult({ success: true, message: `Cloud récupéré : +${result.commandes} CMD, +${result.devis} DEV, +${result.catalogue} maj STK` });
                 window.dispatchEvent(new Event('catalogUpdated'));
             } else {
-                showResult({ success: false, message: 'Erreur lors de la récupération cloud.' });
+                showResult({ success: false, message: `Erreur cloud: ${result.message || 'Inconnue'}` });
             }
         } catch (err) {
             showResult({ success: false, message: `Erreur : ${err.message}` });
@@ -211,7 +212,7 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
             cleanup();
             if (!data || data.status !== 'ok') {
                 console.warn('Sync cloud entrante retour incorrect:', data);
-                return resolve({ success: false });
+                return resolve({ success: false, message: data ? data.message : 'Pas de réponse valide' });
             }
 
             try {
@@ -235,7 +236,40 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
                         }
                     }
                 }
-                resolve({ success: true, commandes: data.commandes?.length || 0, devis: data.devis?.length || 0 });
+                // Merge catalogue
+                let productsUpdated = 0;
+                if (data.catalogue && Array.isArray(data.catalogue)) {
+                    const localProducts = await getProducts();
+                    const localMap = new Map(localProducts.map(p => [String(p.id), p]));
+                    for (const remoteProd of data.catalogue) {
+                        const localP = localMap.get(String(remoteProd.id));
+                        if (localP) {
+                            if (localP.stock !== remoteProd.stock) {
+                                localP.stock = parseInt(remoteProd.stock) || 0;
+                                localP.name = remoteProd.name || localP.name;
+                                localP.price = parseFloat(remoteProd.price) || localP.price;
+                                localP.alertThreshold = parseInt(remoteProd.alertThreshold) || localP.alertThreshold;
+                                await saveProduct(localP);
+                                productsUpdated++;
+                            }
+                        } else {
+                            // Si nouveau produit créé depuis le Google Sheet directement
+                            const newProd = {
+                                id: remoteProd.id,
+                                name: remoteProd.name || 'Produit sans nom',
+                                price: parseFloat(remoteProd.price) || 0,
+                                categoryId: remoteProd.categoryName || 'cat1', // simplification
+                                stock: parseInt(remoteProd.stock) || 0,
+                                alertThreshold: parseInt(remoteProd.alertThreshold) || 0,
+                                color: '#fbcfe8'
+                            };
+                            await saveProduct(newProd);
+                            productsUpdated++;
+                        }
+                    }
+                }
+
+                resolve({ success: true, commandes: data.commandes?.length || 0, devis: data.devis?.length || 0, catalogue: productsUpdated });
             } catch (err) {
                 console.warn('Erreur durant la fusion locale:', err);
                 resolve({ success: false });

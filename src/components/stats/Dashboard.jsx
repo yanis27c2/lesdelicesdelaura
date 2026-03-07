@@ -76,7 +76,7 @@ export default function Dashboard() {
     }, []);
 
     return (
-        <div className="admin-container">
+        <div className="admin-container" style={{ overflowY: 'auto', paddingBottom: '60px' }}>
             <div className="admin-header">
                 <h2><BarChart3 /> Menu de Synthèse</h2>
             </div>

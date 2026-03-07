@@ -5,8 +5,9 @@
     display: flex;
     flex-direction: column;
     gap: 24px;
-    height: 100%;
-    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
 }
 
 .admin-header {
@@ -26,8 +27,12 @@
     background-color: var(--color-surface);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
-    overflow: hidden;
     border: 1px solid var(--color-border);
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .products-table {
@@ -49,6 +54,9 @@
     font-size: 0.9rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .products-table tr:hover td {
@@ -97,4 +105,71 @@
 .btn-icon.delete:hover {
     color: #ef4444;
     background-color: #fee2e2;
+}
+
+/* ── Alertes Stock & Réassort (Compact) ── */
+.reassort-section {
+    margin: 0 24px 16px;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1rem;
+    color: var(--color-text);
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.reassort-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.reassort-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: var(--shadow-sm);
+}
+
+.r-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 6px;
+}
+
+.r-card-body {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}
+
+.r-card-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.r-card-actions input {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+}
+
+.r-card-actions button {
+    padding: 6px 12px;
+    font-size: 0.85rem;
 }

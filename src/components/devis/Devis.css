@@ -5,6 +5,11 @@
 /* ── Container ── */
 .devis-container {
     background: var(--color-bg, #fdf8f5);
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 /* ── Header ── */
@@ -13,22 +18,22 @@
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 16px;
-    padding-bottom: 20px;
+    gap: 12px;
+    padding-bottom: 12px;
     border-bottom: 2px solid #f0e8e0;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
 }
 
 .devis-header-left {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
 }
 
 .devis-header-icon {
-    width: 52px;
-    height: 52px;
-    border-radius: 16px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
     background: linear-gradient(135deg, #f9a8d4 0%, #fbcfe8 100%);
     display: flex;
     align-items: center;
@@ -39,14 +44,14 @@
 }
 
 .devis-header h2 {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 700;
     color: var(--color-text, #1a1a2e);
-    margin: 0 0 4px 0;
+    margin: 0 0 2px 0;
 }
 
 .devis-header-sub {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--color-text-muted, #78716c);
     margin: 0;
 }
@@ -72,43 +77,43 @@
 .devis-stats-bar {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 6px;
+    margin-bottom: 8px;
 }
 
 .devis-stat {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 16px 18px;
+    gap: 6px;
+    padding: 4px 8px;
     background: #fff;
-    border-radius: 14px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
     border: 1px solid #f0e8e0;
     transition: transform 0.15s, box-shadow 0.15s;
 }
 
 .devis-stat:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.07);
 }
 
 .stat-icon {
-    font-size: 1.6rem;
+    font-size: 0.95rem;
     flex-shrink: 0;
 }
 
 .stat-number {
-    font-size: 1.5rem;
+    font-size: 0.9rem;
     font-weight: 800;
     color: var(--color-text, #1a1a2e);
     line-height: 1;
 }
 
 .stat-label {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     color: var(--color-text-muted, #78716c);
-    margin-top: 3px;
+    margin-top: 1px;
     white-space: nowrap;
 }
 
@@ -148,13 +153,19 @@
     flex-wrap: nowrap !important;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    margin-bottom: 20px;
-    padding: 10px;
-    background: #fff;
-    border-radius: 16px;
+    margin-bottom: 32px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
     border: 1px solid #f0e8e0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-    gap: 10px !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+    gap: 8px !important;
+    width: 100%;
+    box-sizing: border-box;
+    position: sticky;
+    top: 6px;
+    z-index: 1000;
 }
 
 .devis-tabs::-webkit-scrollbar {
@@ -164,12 +175,15 @@
 .devis-tabs .filter-tab {
     background: #fdf8f5;
     border: 1px solid #f0e8e0;
-    border-radius: 12px;
+    border-radius: 8px;
     color: #57534e;
     font-weight: 600;
-    padding: 10px 20px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    padding: 8px 18px;
+    font-size: 0.85rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
     transition: all 0.2s ease;
+    min-width: 100px;
+    text-align: center;
 }
 
 .devis-tabs .filter-tab:hover {
@@ -183,7 +197,7 @@
     background: linear-gradient(135deg, #ec4899, #be185d) !important;
     color: white !important;
     border: none;
-    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.4);
+    box-shadow: 0 3px 10px rgba(236, 72, 153, 0.35);
     transform: translateY(-1px);
 }
 
@@ -204,15 +218,17 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    padding-bottom: 80px;
+    margin-top: 24px;
 }
 
 /* ── Card ── */
 .devis-card {
     background: #fff;
-    border-radius: 18px;
+    border-radius: 14px;
     border: 1.5px solid #f0e8e0;
-    padding: 20px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    padding: 14px 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
     position: relative;
     overflow: hidden;
@@ -281,8 +297,8 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 10px;
+    margin-bottom: 8px;
 }
 
 .devis-card-left {

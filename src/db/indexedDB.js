@@ -1,7 +1,7 @@
 // Simple wrapper for IndexedDB to store sales, products, and categories offline
 
 const DB_NAME = 'BakeryPOS_DB';
-const DB_VERSION = 6; // v6: productionStartDate index on orders
+const DB_VERSION = 7; // v7: stock_history
 const STORE_SALES = 'sales';
 const STORE_PRODUCTS = 'products';
 const STORE_CATEGORIES = 'categories';
@@ -10,6 +10,7 @@ const STORE_Z_REPORTS = 'z_reports';
 const STORE_CUSTOMERS = 'customers';
 const STORE_ORDERS = 'orders';
 const STORE_DEVIS = 'devis';
+const STORE_STOCK_HISTORY = 'stock_history';
 
 let db = null;
 
@@ -93,7 +94,58 @@ export const initDB = () => {
                 devisStore.createIndex('createdAt', 'createdAt', { unique: false });
                 devisStore.createIndex('numero', 'numero', { unique: false });
             }
+
+            // Stock History store
+            if (!database.objectStoreNames.contains(STORE_STOCK_HISTORY)) {
+                const stockStore = database.createObjectStore(STORE_STOCK_HISTORY, { keyPath: 'id', autoIncrement: true });
+                stockStore.createIndex('timestamp', 'timestamp', { unique: false });
+                stockStore.createIndex('productId', 'productId', { unique: false });
+            }
         };
+    });
+};
+
+// --- STOCK HISTORY ---
+export const logStockMovement = async (productId, productName, quantityChange, newStock, type, referenceId = '') => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_STOCK_HISTORY], 'readwrite');
+        const store = transaction.objectStore(STORE_STOCK_HISTORY);
+        const request = store.add({
+            timestamp: new Date().toISOString(),
+            productId,
+            name: productName,
+            quantityChange,
+            newStock,
+            type, // 'vente', 'commande', 'reassort', 'manuel'
+            referenceId,
+            synced: false
+        });
+        request.onsuccess = e => resolve(e.target.result);
+        request.onerror = e => reject(e.target.error);
+    });
+};
+
+export const getUnsyncedStockHistory = async () => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_STOCK_HISTORY], 'readonly');
+        const store = transaction.objectStore(STORE_STOCK_HISTORY);
+        const request = store.getAll(); // we will just get all since we clear them after sync like sales
+
+        request.onsuccess = (event) => resolve(event.target.result);
+        request.onerror = (event) => reject(event.target.error);
+    });
+};
+
+export const clearStockHistory = async () => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_STOCK_HISTORY], 'readwrite');
+        const store = transaction.objectStore(STORE_STOCK_HISTORY);
+        const request = store.clear();
+        request.onsuccess = () => resolve(true);
+        request.onerror = (e) => reject(e.target.error);
     });
 };
 
@@ -102,9 +154,10 @@ export const initDB = () => {
 export const saveSale = async (saleData) => {
     await initDB();
     return new Promise((resolve, reject) => {
-        const transaction = db.transaction([STORE_SALES, STORE_PRODUCTS], 'readwrite');
+        const transaction = db.transaction([STORE_SALES, STORE_PRODUCTS, STORE_STOCK_HISTORY], 'readwrite');
         const salesStore = transaction.objectStore(STORE_SALES);
         const productsStore = transaction.objectStore(STORE_PRODUCTS);
+        const stockStore = transaction.objectStore(STORE_STOCK_HISTORY);
 
         const sale = {
             ...saleData,
@@ -114,21 +167,38 @@ export const saveSale = async (saleData) => {
 
         const request = salesStore.add(sale);
 
-        // Update stock for each item sold
-        saleData.items.forEach(item => {
-            if (item.stock !== undefined && item.stock !== null) {
-                const getReq = productsStore.get(item.id);
-                getReq.onsuccess = (e) => {
-                    const product = e.target.result;
-                    if (product && product.stock !== undefined) {
-                        product.stock = Math.max(0, product.stock - item.quantity);
-                        productsStore.put(product);
-                    }
-                };
-            }
-        });
+        request.onsuccess = (event) => {
+            const saleId = event.target.result;
+            // Update stock for each item sold
+            saleData.items.forEach(item => {
+                if (item.stock !== undefined && item.stock !== null) {
+                    const getReq = productsStore.get(item.id);
+                    getReq.onsuccess = (e) => {
+                        const product = e.target.result;
+                        if (product && product.stock !== undefined) {
+                            const newStock = Math.max(0, product.stock - item.quantity);
+                            const diff = newStock - product.stock; // Should be negative
+                            product.stock = newStock;
+                            productsStore.put(product);
 
-        request.onsuccess = (event) => resolve(event.target.result);
+                            if (diff !== 0) {
+                                stockStore.add({
+                                    timestamp: new Date().toISOString(),
+                                    productId: product.id,
+                                    name: product.name,
+                                    quantityChange: diff,
+                                    newStock: newStock,
+                                    type: 'vente',
+                                    referenceId: String(saleId),
+                                    synced: false
+                                });
+                            }
+                        }
+                    };
+                }
+            });
+            resolve(saleId);
+        };
         request.onerror = (event) => reject(event.target.error);
     });
 };
@@ -355,29 +425,48 @@ export const getOrders = async () => {
 export const saveOrder = async (orderData) => {
     await initDB();
     return new Promise((resolve, reject) => {
-        const transaction = db.transaction([STORE_ORDERS, STORE_PRODUCTS], 'readwrite');
+        const transaction = db.transaction([STORE_ORDERS, STORE_PRODUCTS, STORE_STOCK_HISTORY], 'readwrite');
         const store = transaction.objectStore(STORE_ORDERS);
         const productsStore = transaction.objectStore(STORE_PRODUCTS);
+        const stockStore = transaction.objectStore(STORE_STOCK_HISTORY);
 
         const isNew = !orderData.id;
         const request = isNew
             ? store.add({ ...orderData, createdAt: new Date().toISOString(), status: orderData.status || 'pending' })
             : store.put(orderData);
 
-        if (isNew && orderData.type !== 'reassort' && orderData.parsedItems) {
-            orderData.parsedItems.forEach(item => {
-                const getReq = productsStore.get(item.id);
-                getReq.onsuccess = (e) => {
-                    const product = e.target.result;
-                    if (product && product.stock !== undefined) {
-                        product.stock = Math.max(0, product.stock - item.qty);
-                        productsStore.put(product);
-                    }
-                };
-            });
-        }
+        request.onsuccess = e => {
+            const orderId = e.target.result;
 
-        request.onsuccess = e => resolve(e.target.result);
+            if (isNew && orderData.type !== 'reassort' && orderData.parsedItems) {
+                orderData.parsedItems.forEach(item => {
+                    const getReq = productsStore.get(item.id);
+                    getReq.onsuccess = (ev) => {
+                        const product = ev.target.result;
+                        if (product && product.stock !== undefined) {
+                            const newStock = Math.max(0, product.stock - item.qty);
+                            const diff = newStock - product.stock;
+                            product.stock = newStock;
+                            productsStore.put(product);
+
+                            if (diff !== 0) {
+                                stockStore.add({
+                                    timestamp: new Date().toISOString(),
+                                    productId: product.id,
+                                    name: product.name,
+                                    quantityChange: diff,
+                                    newStock: newStock,
+                                    type: 'commande',
+                                    referenceId: String(orderId),
+                                    synced: false
+                                });
+                            }
+                        }
+                    };
+                });
+            }
+            resolve(orderId);
+        };
         request.onerror = e => reject(e.target.error);
     });
 };
