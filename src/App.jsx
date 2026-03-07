@@ -4,7 +4,7 @@ import './AppNav.css';
 import { Store, Wifi, WifiOff, LayoutGrid, Package, BarChart3, Calculator, Users, ClipboardList, FileText, CalendarClock } from 'lucide-react';
 import ProductGrid from './components/pos/ProductGrid';
 import Cart from './components/pos/Cart';
-import SyncManager from './components/sync/SyncManager';
+import SyncManager, { syncFromCloud } from './components/sync/SyncManager';
 import ProductManager from './components/admin/ProductManager';
 import Dashboard from './components/stats/Dashboard';
 import ZReport from './components/stats/ZReport';
@@ -12,7 +12,7 @@ import Customers from './components/customers/Customers';
 import Orders from './components/orders/Orders';
 import Devis from './components/devis/Devis';
 import Planning from './components/planning/Planning';
-import { saveSale } from './db/indexedDB';
+import { saveSale, saveOrder, saveDevis } from './db/indexedDB';
 import { seedDatabaseIfEmpty } from './db/initData';
 
 function App() {
@@ -20,6 +20,7 @@ function App() {
   const [cartItems, setCartItems] = useState([]);
   const [currentView, setCurrentView] = useState('pos'); // pos, admin, stats, zreport
   const [isReady, setIsReady] = useState(false);
+  const [syncToast, setSyncToast] = useState(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -28,10 +29,20 @@ function App() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Seed DB before rendering POS
+    // Seed DB before rendering POS and try cloud sync
     const initApp = async () => {
       await seedDatabaseIfEmpty();
       setIsReady(true);
+
+      if (navigator.onLine) {
+        console.log('Online at startup, attempting inbound sync...');
+        const result = await syncFromCloud(saveOrder, saveDevis);
+        if (result && result.success && (result.commandes > 0 || result.devis > 0)) {
+          setSyncToast(`Cloud check: +${result.commandes} commandes, +${result.devis} devis`);
+          setTimeout(() => setSyncToast(null), 4000);
+          window.dispatchEvent(new Event('catalogUpdated')); // trigger refresh
+        }
+      }
     };
     initApp();
 
@@ -91,6 +102,19 @@ function App() {
 
   return (
     <div className="app-container">
+      {/* INBOUND SYNC TOAST */}
+      {syncToast && (
+        <div style={{
+          position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+          background: '#10b981', color: 'white', padding: '10px 20px',
+          borderRadius: 30, fontSize: '0.9rem', fontWeight: 600,
+          boxShadow: '0 4px 12px rgba(16,185,129,0.3)', zIndex: 9999,
+          animation: 'fadeIn 0.3s ease'
+        }}>
+          ☁️ {syncToast}
+        </div>
+      )}
+
       {/* Global header */}
       <header className="pos-header">
         <div className="brand">
