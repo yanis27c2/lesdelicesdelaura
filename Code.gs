@@ -137,6 +137,33 @@ function doPost(e) {
       results.commandes = data.commandes.length + ' commandes ajoutées';
     }
 
+    // ---- 6. DEVIS ----
+    if (data.devis && data.devis.length > 0) {
+      var sheetDevis = getOrCreateSheet(ss, 'Devis', [
+        'N° Devis', 'Date Création', 'Client', 'Téléphone', 'Email',
+        'Date Validité', 'Total (€)', 'Remise (€)', 'Net (€)', 'Statut', 'Détail Articles', 'Notes'
+      ]);
+      data.devis.forEach(function(d) {
+        var createdDate = d.createdAt ? Utilities.formatDate(new Date(d.createdAt), 'Europe/Paris', 'dd/MM/yyyy HH:mm') : '';
+        var net = Math.max(0, (d.totalPrice || 0) - (d.discount || 0));
+        sheetDevis.appendRow([
+          d.numero || ('DEV-' + (d.year || new Date().getFullYear()) + '-' + String(d.id).padStart(3, '0')),
+          createdDate,
+          d.customerName || '',
+          d.customerPhone || '',
+          d.customerEmail || '',
+          d.validityDate || '',
+          d.totalPrice || 0,
+          d.discount || 0,
+          Math.round(net * 100) / 100,
+          d.status || '',
+          d.items || '',
+          d.notes || ''
+        ]);
+      });
+      results.devis = data.devis.length + ' devis ajoutés';
+    }
+
     output.setContent(JSON.stringify({ status: 'success', results: results }));
 
   } catch(error) {

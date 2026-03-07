@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { CloudUpload, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 import {
     getAllSales, getProducts, getCategories,
-    getExpenses, getZReports, getOrders,
-    clearAllSales, clearAllExpenses, clearAllZReports, clearAllOrders
+    getExpenses, getZReports, getOrders, getDevis,
+    clearAllSales, clearAllExpenses, clearAllZReports, clearAllOrders, clearAllDevis
 } from '../../db/indexedDB';
 import './SyncManager.css';
 
@@ -16,13 +16,14 @@ export default function SyncManager({ isOnline }) {
 
     const countPending = async () => {
         try {
-            const [sales, depenses, clotures, commandes] = await Promise.all([
+            const [sales, depenses, clotures, commandes, devis] = await Promise.all([
                 getAllSales(),
                 getExpenses(),
                 getZReports(),
-                getOrders()
+                getOrders(),
+                getDevis()
             ]);
-            setPendingCount(sales.length + depenses.length + clotures.length + commandes.length);
+            setPendingCount(sales.length + depenses.length + clotures.length + commandes.length + devis.length);
         } catch (err) {
             console.error('Erreur comptage données', err);
         }
@@ -59,9 +60,9 @@ export default function SyncManager({ isOnline }) {
         setSyncResult(null);
 
         try {
-            const [ventes, products, categories, depenses, clotures, commandes] = await Promise.all([
+            const [ventes, products, categories, depenses, clotures, commandes, devis] = await Promise.all([
                 getAllSales(), getProducts(), getCategories(),
-                getExpenses(), getZReports(), getOrders()
+                getExpenses(), getZReports(), getOrders(), getDevis()
             ]);
 
             const catMap = {};
@@ -70,7 +71,7 @@ export default function SyncManager({ isOnline }) {
                 ...p, categoryName: catMap[p.categoryId] || p.categoryId
             }));
 
-            const payload = { ventes, catalogue, depenses, clotures, commandes };
+            const payload = { ventes, catalogue, depenses, clotures, commandes, devis };
 
             const blob = new Blob([JSON.stringify(payload)], { type: 'text/plain' });
 
@@ -96,7 +97,7 @@ export default function SyncManager({ isOnline }) {
             // Succès : on vide les données locales
             await Promise.all([
                 clearAllSales(), clearAllExpenses(),
-                clearAllZReports(), clearAllOrders()
+                clearAllZReports(), clearAllOrders(), clearAllDevis()
             ]);
             window.dispatchEvent(new Event('catalogUpdated'));
             setPendingCount(0);

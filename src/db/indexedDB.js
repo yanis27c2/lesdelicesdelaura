@@ -1,7 +1,7 @@
 // Simple wrapper for IndexedDB to store sales, products, and categories offline
 
 const DB_NAME = 'BakeryPOS_DB';
-const DB_VERSION = 4; // Added customers and orders
+const DB_VERSION = 5; // Added devis store
 const STORE_SALES = 'sales';
 const STORE_PRODUCTS = 'products';
 const STORE_CATEGORIES = 'categories';
@@ -9,6 +9,7 @@ const STORE_EXPENSES = 'expenses';
 const STORE_Z_REPORTS = 'z_reports';
 const STORE_CUSTOMERS = 'customers';
 const STORE_ORDERS = 'orders';
+const STORE_DEVIS = 'devis';
 
 let db = null;
 
@@ -75,6 +76,14 @@ export const initDB = () => {
                 const orderStore = database.createObjectStore(STORE_ORDERS, { keyPath: 'id', autoIncrement: true });
                 orderStore.createIndex('status', 'status', { unique: false });
                 orderStore.createIndex('pickupDate', 'pickupDate', { unique: false });
+            }
+
+            // Devis store
+            if (!database.objectStoreNames.contains(STORE_DEVIS)) {
+                const devisStore = database.createObjectStore(STORE_DEVIS, { keyPath: 'id', autoIncrement: true });
+                devisStore.createIndex('status', 'status', { unique: false });
+                devisStore.createIndex('createdAt', 'createdAt', { unique: false });
+                devisStore.createIndex('numero', 'numero', { unique: false });
             }
         };
     });
@@ -396,6 +405,62 @@ export const clearAllOrders = async () => {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([STORE_ORDERS], 'readwrite');
         const request = transaction.objectStore(STORE_ORDERS).clear();
+        request.onsuccess = () => resolve(true);
+        request.onerror = e => reject(e.target.error);
+    });
+};
+
+// --- DEVIS (Gestion des devis) ---
+
+export const getDevis = async () => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_DEVIS], 'readonly');
+        const request = transaction.objectStore(STORE_DEVIS).getAll();
+        request.onsuccess = e => resolve(e.target.result);
+        request.onerror = e => reject(e.target.error);
+    });
+};
+
+export const saveDevis = async (devisData) => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_DEVIS], 'readwrite');
+        const store = transaction.objectStore(STORE_DEVIS);
+        let record;
+        if (devisData.id) {
+            record = { ...devisData };
+        } else {
+            // Generate numero on first save
+            const year = new Date().getFullYear();
+            record = {
+                ...devisData,
+                createdAt: new Date().toISOString(),
+                status: devisData.status || 'brouillon',
+                year,
+            };
+        }
+        const request = devisData.id ? store.put(record) : store.add(record);
+        request.onsuccess = e => resolve(e.target.result);
+        request.onerror = e => reject(e.target.error);
+    });
+};
+
+export const deleteDevis = async (id) => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_DEVIS], 'readwrite');
+        const request = transaction.objectStore(STORE_DEVIS).delete(id);
+        request.onsuccess = e => resolve(e.target.result);
+        request.onerror = e => reject(e.target.error);
+    });
+};
+
+export const clearAllDevis = async () => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_DEVIS], 'readwrite');
+        const request = transaction.objectStore(STORE_DEVIS).clear();
         request.onsuccess = () => resolve(true);
         request.onerror = e => reject(e.target.error);
     });

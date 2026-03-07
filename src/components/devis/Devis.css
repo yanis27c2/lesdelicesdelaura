@@ -1,0 +1,508 @@
+/* ═══════════════════════════════════════════════════════════
+   DEVIS — Styles premium · Les Délices de Laura
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Container ── */
+.devis-container {
+    background: var(--color-bg, #fdf8f5);
+}
+
+/* ── Header ── */
+.devis-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #f0e8e0;
+    margin-bottom: 24px;
+}
+
+.devis-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.devis-header-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #f9a8d4 0%, #fbcfe8 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #be185d;
+    box-shadow: 0 4px 12px #f9a8d440;
+    flex-shrink: 0;
+}
+
+.devis-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text, #1a1a2e);
+    margin: 0 0 4px 0;
+}
+
+.devis-header-sub {
+    font-size: 0.85rem;
+    color: var(--color-text-muted, #78716c);
+    margin: 0;
+}
+
+.devis-new-btn {
+    padding: 12px 24px !important;
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    border-radius: 12px !important;
+    background: linear-gradient(135deg, #ec4899, #be185d) !important;
+    box-shadow: 0 4px 14px #ec489940 !important;
+    transition: transform 0.15s, box-shadow 0.15s !important;
+}
+
+.devis-new-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px #ec489955 !important;
+}
+
+/* ── Stats Bar ── */
+.devis-stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.devis-stat {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border: 1px solid #f0e8e0;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.devis-stat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.stat-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--color-text, #1a1a2e);
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #78716c);
+    margin-top: 3px;
+    white-space: nowrap;
+}
+
+/* ── Alert Banner ── */
+.devis-alert-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: linear-gradient(135deg, #fffbeb, #fef3c7);
+    border: 1.5px solid #fcd34d;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    color: #92400e;
+    font-size: 0.9rem;
+}
+
+.devis-alert-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.devis-alert-chip {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+/* ── Filter Tabs ── */
+.devis-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-bottom: 20px;
+}
+
+.devis-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+/* ── List ── */
+.devis-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* ── Card ── */
+.devis-card {
+    background: #fff;
+    border-radius: 18px;
+    border: 1.5px solid #f0e8e0;
+    padding: 20px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.devis-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    border-radius: 4px 0 0 4px;
+    background: #e2e8f0;
+}
+
+.devis-card.brouillon::before {
+    background: #94a3b8;
+}
+
+.devis-card.envoye::before {
+    background: linear-gradient(180deg, #f59e0b, #d97706);
+}
+
+.devis-card.accepte::before {
+    background: linear-gradient(180deg, #10b981, #059669);
+}
+
+.devis-card.refuse::before {
+    background: #ef4444;
+}
+
+.devis-card.expire::before {
+    background: #9ca3af;
+}
+
+.devis-card.converti::before {
+    background: linear-gradient(180deg, #8b5cf6, #7c3aed);
+}
+
+.devis-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.devis-card.expired {
+    opacity: 0.75;
+}
+
+.devis-card.urgent-card {
+    border-color: #fcd34d;
+    box-shadow: 0 4px 16px #fef08a80;
+}
+
+/* Card Header */
+.devis-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.devis-card-left {
+    flex: 1;
+    min-width: 0;
+}
+
+.devis-card-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.devis-numero {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--color-primary, #ec4899);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.devis-customer {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-text, #1a1a2e);
+}
+
+.devis-phone {
+    font-size: 0.82rem;
+    color: var(--color-text-muted, #78716c);
+    margin-top: 2px;
+}
+
+.devis-status-badge {
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.devis-card-actions-icons {
+    display: flex;
+    gap: 6px;
+}
+
+/* Articles */
+.devis-items {
+    font-size: 0.875rem;
+    color: var(--color-text-muted, #57534e);
+    white-space: pre-wrap;
+    line-height: 1.6;
+    background: #fdf8f5;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    border: 1px solid #f0e8e0;
+}
+
+/* Footer row */
+.devis-footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.devis-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: var(--color-text-muted, #78716c);
+}
+
+.devis-validity.text-expired {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.devis-validity.text-urgent {
+    color: #f59e0b;
+    font-weight: 600;
+}
+
+.devis-price-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.devis-discount {
+    font-size: 0.78rem;
+    color: #ef4444;
+    text-decoration: line-through;
+}
+
+.devis-total {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--color-primary-dark, #be185d);
+}
+
+/* Notes */
+.devis-notes {
+    font-size: 0.82rem;
+    color: #78716c;
+    background: #fef9f5;
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-top: 8px;
+    border-left: 3px solid #f0e8e0;
+}
+
+/* Action Buttons */
+.devis-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #f0e8e0;
+}
+
+.devis-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s;
+}
+
+.devis-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.devis-btn.envoye {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    color: #92400e;
+    border: 1.5px solid #fcd34d;
+}
+
+.devis-btn.accepte {
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+    color: #065f46;
+    border: 1.5px solid #6ee7b7;
+}
+
+.devis-btn.refuse {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1.5px solid #fca5a5;
+}
+
+.devis-btn.convert {
+    background: linear-gradient(135deg, #ec4899, #be185d);
+    color: #fff;
+    border: none;
+    box-shadow: 0 4px 12px #ec489940;
+    flex: 1;
+    justify-content: center;
+}
+
+.devis-btn.convert:hover {
+    box-shadow: 0 6px 18px #ec489960;
+}
+
+.devis-terminal-badge {
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 20px;
+}
+
+.devis-terminal-badge.refuse {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.devis-terminal-badge.expire {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.devis-terminal-badge.converti {
+    background: #f5f3ff;
+    color: #7c3aed;
+}
+
+/* ── Empty state ── */
+.devis-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--color-text-muted, #78716c);
+    text-align: center;
+    gap: 8px;
+}
+
+/* ── Drawer header brand ── */
+.devis-drawer-header {
+    background: linear-gradient(135deg, #fdf2f8 0%, #fff 100%);
+    border-bottom: 1px solid #f0e8e0 !important;
+}
+
+.drawer-header-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--color-primary, #ec4899);
+}
+
+/* ── Total pill overrides for devis ── */
+.devis-total-pill {
+    background: linear-gradient(135deg, #fdf2f8, #fff) !important;
+    border: 1.5px solid #f9a8d4 !important;
+    color: #be185d !important;
+    font-size: 1rem;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .devis-stats-bar {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .devis-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .devis-card-header {
+        flex-direction: column;
+    }
+
+    .devis-card-right {
+        flex-direction: row;
+        align-items: center;
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .devis-btn.convert {
+        font-size: 0.8rem;
+        padding: 8px 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .devis-stats-bar {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .devis-stat {
+        padding: 12px;
+    }
+
+    .stat-number {
+        font-size: 1.2rem;
+    }
+}
