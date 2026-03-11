@@ -67,10 +67,10 @@
 /* ── Products grid: fixed 3 columns, max-width to stay centred ── */
 .products-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(140px, 220px));
-    gap: 14px;
+    grid-template-columns: repeat(3, minmax(110px, 170px));
+    gap: 10px;
     width: 100%;
-    max-width: 720px;
+    max-width: 580px;
     align-content: start;
     box-sizing: border-box;
 }
@@ -78,9 +78,9 @@
 /* Tablette portrait / iPad (≤900px) : 2 colonnes */
 @media (max-width: 900px) {
     .products-grid {
-        grid-template-columns: repeat(2, minmax(120px, 200px));
-        max-width: 440px;
-        gap: 10px;
+        grid-template-columns: repeat(2, minmax(100px, 160px));
+        max-width: 350px;
+        gap: 8px;
     }
 }
 
@@ -97,7 +97,7 @@
 .product-card {
     aspect-ratio: 1;
     border-radius: var(--radius-md);
-    padding: 12px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -137,7 +137,7 @@
 
 .product-name {
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 0.78rem;
     line-height: 1.2;
     word-break: break-word;
     hyphens: auto;
@@ -145,6 +145,6 @@
 
 .product-price {
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     color: var(--color-primary-dark);
 }
