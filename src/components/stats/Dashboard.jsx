@@ -20,6 +20,14 @@ const endOfDay = (d) => { const x = new Date(d); x.setHours(23, 59, 59, 999); re
 const fmt = (d) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
 const fmtFull = (d) => d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
 
+const toKey = (d) => {
+    const x = new Date(d);
+    const y = x.getFullYear();
+    const m = String(x.getMonth() + 1).padStart(2, '0');
+    const day = String(x.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+};
+
 function getPeriodBounds(preset, customFrom, customTo) {
     const now = new Date();
     if (preset === 'today') return { from: startOfDay(now), to: endOfDay(now) };
@@ -98,13 +106,13 @@ function buildDailyData(directEntries, orderEntries, from, to, source) {
     const map = {};
     const cur = new Date(from);
     while (cur <= to) {
-        const key = cur.toISOString().slice(0, 10);
+        const key = toKey(cur);
         map[key] = { date: fmt(cur), fullDate: fmtFull(new Date(cur)), direct: 0, commande: 0, total: 0, ventes: 0, ventes_direct: 0, ventes_commande: 0 };
         cur.setDate(cur.getDate() + 1);
     }
 
     (source !== 'commande' ? directEntries : []).forEach(s => {
-        const key = new Date(s.timestamp).toISOString().slice(0, 10);
+        const key = toKey(s.timestamp);
         const val = parseFloat(s.total) || 0;
         if (map[key]) {
             map[key].direct += val;
@@ -114,7 +122,7 @@ function buildDailyData(directEntries, orderEntries, from, to, source) {
         }
     });
     (source !== 'direct' ? orderEntries : []).forEach(o => {
-        const key = new Date(o.timestamp).toISOString().slice(0, 10);
+        const key = toKey(o.timestamp);
         const val = parseFloat(o.total) || 0;
         if (map[key]) {
             map[key].commande += val;
