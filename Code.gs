@@ -219,23 +219,41 @@ function doGet(e) {
       var result = {};
 
       // ── Commandes actives (tout sauf récupéré) ──
+      // Lecture par position (ordre identique à doPost) + formatage des dates
+      // Colonnes (doPost): 0=ID, 1=Type, 2=Date Création, 3=Nom Client, 4=Tél,
+      //   5=Date Retrait, 6=Heure Retrait, 7=Début Production,
+      //   8=Total (€), 9=Acompte (€), 10=Reste, 11=Statut, 12=Notes, 13=Détail Articles
       var sheetCmd = ss.getSheetByName('Commandes');
       if (sheetCmd && sheetCmd.getLastRow() > 1) {
         var cmdData = sheetCmd.getDataRange().getValues();
-        var cmdHeaders = cmdData[0];
         var commandes = [];
+        // Exposer les vrais headers pour debug
+        result.cmdHeaders = cmdData[0].map(function(h) { return String(h); });
         for (var i = 1; i < cmdData.length; i++) {
           var row = cmdData[i];
-          var status = String(row[10] || '');
-          if (status === 'recupere' || status === 'collected') continue; // skip terminées
-          var obj = {};
-          cmdHeaders.forEach(function(h, idx) { obj[h] = row[idx]; });
+          // Formater une valeur : si c'est un objet Date, le convertir en string lisible
+          function fmtVal(v) {
+            if (v instanceof Date && !isNaN(v.getTime())) {
+              return Utilities.formatDate(v, 'Europe/Paris', 'dd/MM/yyyy HH:mm');
+            }
+            return v !== null && v !== undefined ? String(v) : '';
+          }
+          var status = fmtVal(row[11]);
+          if (status === 'recupere' || status === 'collected') continue;
           commandes.push({
-            id: row[0], createdAt: row[1],
-            customerName: row[2], customerPhone: row[3],
-            pickupDate: row[4], pickupTime: row[5], productionStartDate: row[6],
-            totalPrice: row[7], deposit: row[8],
-            status: row[10], notes: row[11], items: row[12]
+            id: row[0],
+            type: fmtVal(row[1]),
+            createdAt: fmtVal(row[2]),
+            customerName: fmtVal(row[3]),
+            customerPhone: fmtVal(row[4]),
+            pickupDate: fmtVal(row[5]),
+            pickupTime: fmtVal(row[6]),
+            productionStartDate: fmtVal(row[7]),
+            totalPrice: row[8],
+            deposit: row[9],
+            status: fmtVal(row[11]),
+            notes: fmtVal(row[12]),
+            items: fmtVal(row[13])
           });
         }
         result.commandes = commandes;

@@ -677,7 +677,7 @@ function CalendarView({ orders, onStatusChange, onDelete, onAddForDate }) {
 export default function Orders() {
     const [orders, setOrders] = useState([]);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-    const [filterStatus, setFilterStatus] = useState('pending');
+    const [filterStatus, setFilterStatus] = useState('all');
     const [viewMode, setViewMode] = useState('list');
     const [prefillDate, setPrefillDate] = useState('');
 

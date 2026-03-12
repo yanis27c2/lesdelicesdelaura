@@ -5,7 +5,8 @@ import {
     getExpenses, getZReports, getOrders, getDevis,
     clearAllSales, clearAllExpenses, clearAllZReports,
     saveOrder, saveDevis, getUnsyncedStockHistory, clearStockHistory,
-    saveProduct, getCustomers
+    saveProduct, deleteProduct, saveCategory, getCustomers,
+    clearCatalog, clearAllOrders, clearAllDevis
 } from '../../db/indexedDB';
 import './SyncManager.css';
 
@@ -125,7 +126,7 @@ export default function SyncManager({ isOnline }) {
         try {
             const result = await syncFromCloud(saveOrder, saveDevis);
             if (result.success) {
-                showResult({ success: true, message: `Cloud récupéré : +${result.commandes} CMD, +${result.devis} DEV, +${result.catalogue} maj STK` });
+                showResult({ success: true, message: `Import réussi : ${result.catalogue} produit(s), ${result.commandes} commande(s), ${result.devis} devis remplacé(s)` });
                 window.dispatchEvent(new Event('catalogUpdated'));
             } else {
                 showResult({ success: false, message: `Erreur cloud: ${result.message || 'Inconnue'}` });
@@ -204,8 +205,8 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
         const timeout = setTimeout(() => {
             cleanup();
             console.warn('Sync cloud entrante timeout.');
-            resolve({ success: false });
-        }, 15000); // 15s timeout
+            resolve({ success: false, message: 'Délai dépassé (15s)' });
+        }, 15000);
 
         window[callbackName] = async function (data) {
             clearTimeout(timeout);
@@ -216,63 +217,143 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
             }
 
             try {
-                // Merge commandes
-                if (data.commandes && Array.isArray(data.commandes)) {
-                    const local = await getOrders();
-                    const localIds = new Set(local.map(o => String(o.id)));
-                    for (const order of data.commandes) {
-                        if (!localIds.has(String(order.id))) {
-                            await saveOrderFn(order);
-                        }
-                    }
-                }
-                // Merge devis
-                if (data.devis && Array.isArray(data.devis)) {
-                    const local = await getDevis();
-                    const localIds = new Set(local.map(d => String(d.id)));
-                    for (const d of data.devis) {
-                        if (!localIds.has(String(d.id))) {
-                            await saveDevisFn(d);
-                        }
-                    }
-                }
-                // Merge catalogue
                 let productsUpdated = 0;
-                if (data.catalogue && Array.isArray(data.catalogue)) {
+                let commandesUpdated = 0;
+                let devisUpdated = 0;
+
+                // ── 1. CATALOGUE : remplacement complet ──────────────────
+                // Google Sheets est la source de vérité pour les produits
+                if (data.catalogue && Array.isArray(data.catalogue) && data.catalogue.length > 0) {
+                    // IMPORTANT: lire catégories et produits locaux AVANT clearCatalog
+                    const localCategories = await getCategories();
+                    const catNameToId = {};
+                    localCategories.forEach(c => {
+                        if (c.name) catNameToId[c.name.toLowerCase().trim()] = c.id;
+                    });
+
+                    // Conserver les champs visuels (couleur, emoji) depuis la version locale
                     const localProducts = await getProducts();
-                    const localMap = new Map(localProducts.map(p => [String(p.id), p]));
+                    const localProductMap = new Map(localProducts.map(p => [String(p.id), p]));
+
+                    // Vider les produits uniquement (sans toucher les catégories)
+                    for (const lp of localProducts) {
+                        try { await deleteProduct(lp.id); } catch (e) { }
+                    }
+
+                    // Réimporter exactement depuis le Sheet
                     for (const remoteProd of data.catalogue) {
-                        const localP = localMap.get(String(remoteProd.id));
-                        if (localP) {
-                            if (localP.stock !== remoteProd.stock) {
-                                localP.stock = parseInt(remoteProd.stock) || 0;
-                                localP.name = remoteProd.name || localP.name;
-                                localP.price = parseFloat(remoteProd.price) || localP.price;
-                                localP.alertThreshold = parseInt(remoteProd.alertThreshold) || localP.alertThreshold;
-                                await saveProduct(localP);
-                                productsUpdated++;
-                            }
-                        } else {
-                            // Si nouveau produit créé depuis le Google Sheet directement
-                            const newProd = {
-                                id: remoteProd.id,
-                                name: remoteProd.name || 'Produit sans nom',
-                                price: parseFloat(remoteProd.price) || 0,
-                                categoryId: remoteProd.categoryName || 'cat1', // simplification
-                                stock: parseInt(remoteProd.stock) || 0,
-                                alertThreshold: parseInt(remoteProd.alertThreshold) || 0,
-                                color: '#fbcfe8'
-                            };
-                            await saveProduct(newProd);
-                            productsUpdated++;
-                        }
+                        if (!remoteProd.id) continue;
+                        const localP = localProductMap.get(String(remoteProd.id));
+
+                        // Mapper le nom de catégorie vers un id local
+                        const catName = String(remoteProd.categoryName || '').toLowerCase().trim();
+                        const categoryId = catNameToId[catName] || localP?.categoryId || 'cat1';
+
+                        const product = {
+                            id: remoteProd.id,
+                            name: remoteProd.name || localP?.name || 'Produit sans nom',
+                            price: parseFloat(String(remoteProd.price).replace(',', '.')) || localP?.price || 0,
+                            categoryId,
+                            stock: parseInt(remoteProd.stock) || 0,
+                            alertThreshold: parseInt(remoteProd.alertThreshold) || localP?.alertThreshold || 0,
+                            description: remoteProd.description || localP?.description || '',
+                            // Conserver les champs visuels depuis la version locale si disponible
+                            color: localP?.color || '#fbcfe8',
+                            emoji: localP?.emoji || '',
+                        };
+                        await saveProduct(product);
+                        productsUpdated++;
                     }
                 }
 
-                resolve({ success: true, commandes: data.commandes?.length || 0, devis: data.devis?.length || 0, catalogue: productsUpdated });
+                // ── 2. COMMANDES : remplacement complet ──────────────────
+                if (data.commandes && Array.isArray(data.commandes)) {
+                    await clearAllOrders();
+                    for (const order of data.commandes) {
+                        if (!order.id) continue;
+
+                        // Le script GAS (version deployée) retourne les champs avec un décalage dû à
+                        // l'ancienne version en cache. Mapping réel basé sur la réponse brute observée :
+                        // - id         → id ✓
+                        // - createdAt  → Type (ex: "Standard")
+                        // - customerName → Date Création (timestamp ISO ou string)
+                        // - customerPhone → Nom Client ✓ (la vraie valeur)
+                        // - pickupDate  → Téléphone
+                        // - pickupTime  → Date Retrait (timestamp ISO)
+                        // - productionStartDate → Heure Retrait
+                        // - totalPrice → Début Production (vide la plupart du temps)
+                        // - deposit    → Total (€) ← le vrai montant total
+                        // - status     → Acompte (€)
+                        // - notes      → Statut ← le vrai statut
+                        // - items      → Notes/Détail Articles
+
+                        // Extraire la date de retrait : pickupTime est un ISO string date
+                        let pickupDateStr = '';
+                        if (order.pickupTime && String(order.pickupTime).length > 0) {
+                            try {
+                                const d = new Date(order.pickupTime);
+                                if (!isNaN(d.getTime())) {
+                                    pickupDateStr = d.toISOString().slice(0, 10); // YYYY-MM-DD
+                                }
+                            } catch (e) { }
+                        }
+
+                        const realStatus = String(order.notes || 'en_attente');
+                        // Filtrer les commandes récupérées (déjà filtrées côté serveur mais double sécurité)
+                        if (realStatus === 'recupere' || realStatus === 'collected') continue;
+
+                        await saveOrderFn({
+                            id: order.id,
+                            type: String(order.createdAt || 'Standard'),
+                            createdAt: new Date().toISOString(),
+                            customerName: String(order.customerPhone || ''),
+                            customerPhone: String(order.pickupDate || ''),
+                            pickupDate: pickupDateStr,
+                            pickupTime: '',
+                            productionStartDate: '',
+                            totalPrice: parseFloat(order.deposit) || 0,
+                            deposit: parseFloat(order.status) || 0,
+                            status: realStatus || 'en_attente',
+                            notes: String(order.items || ''),
+                            items: String(order.items || ''),
+                        });
+                        commandesUpdated++;
+                    }
+                }
+
+                // ── 3. DEVIS : remplacement complet ──────────────────────
+                if (data.devis && Array.isArray(data.devis)) {
+                    await clearAllDevis();
+                    for (const d of data.devis) {
+                        if (!d.id) continue;
+                        await saveDevisFn({
+                            id: d.id,
+                            numero: d.numero || '',
+                            createdAt: d.createdAt || new Date().toISOString(),
+                            customerName: d.customerName || '',
+                            customerPhone: d.customerPhone || '',
+                            customerEmail: d.customerEmail || '',
+                            validityDate: d.validityDate || '',
+                            pickupDate: d.pickupDate || '',
+                            totalPrice: parseFloat(d.totalPrice) || 0,
+                            discount: parseFloat(d.discount) || 0,
+                            status: d.status || 'brouillon',
+                            items: d.items || '',
+                            notes: d.notes || '',
+                        });
+                        devisUpdated++;
+                    }
+                }
+
+                resolve({
+                    success: true,
+                    commandes: commandesUpdated,
+                    devis: devisUpdated,
+                    catalogue: productsUpdated
+                });
             } catch (err) {
                 console.warn('Erreur durant la fusion locale:', err);
-                resolve({ success: false });
+                resolve({ success: false, message: err.message });
             }
         };
 
@@ -283,7 +364,7 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
             clearTimeout(timeout);
             cleanup();
             console.warn('Sync cloud entrante script erreur.');
-            resolve({ success: false });
+            resolve({ success: false, message: 'Erreur de connexion au serveur' });
         };
 
         function cleanup() {
@@ -295,3 +376,4 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
         document.body.appendChild(script);
     });
 }
+
