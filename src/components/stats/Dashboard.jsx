@@ -38,26 +38,41 @@ function getPrevPeriodBounds(preset, customFrom, customTo) {
     return null;
 }
 
+const parseOrderDate = (o) => {
+    if (!o) return new Date();
+    // 1. Essayer pickupDate (ISO string YYYY-MM-DD ou Date object)
+    if (o.pickupDate) {
+        const d = new Date(o.pickupDate);
+        if (!isNaN(d.getTime())) return d;
+    }
+    // 2. Essayer pickupTime ou d'autres champs de date
+    if (o.createdAt) {
+        const d = new Date(o.createdAt);
+        if (!isNaN(d.getTime())) return d;
+    }
+    return new Date();
+};
+
 /* Normalise une commande en "entrée de revenu" */
 function ordersToRevenue(orders) {
     return orders
         .filter(o => {
-            const s = o.status || '';
-            return s !== 'cancelled' && o.totalPrice > 0;
+            const s = (o.status || '').toLowerCase();
+            // Seulement les commandes payées/récupérées comptent comme CA réalisé
+            // Mais pour les stats 'Commandes', on veut peut-être tout voir ?
+            // L'utilisateur veut voir le cumul, donc on prend tout ce qui est validé
+            return s !== 'cancelled' && s !== 'brouillon' && o.totalPrice > 0;
         })
         .map(o => {
-            // Date de référence : pickupDate ou createdAt
-            const dateRef = o.pickupDate
-                ? new Date(o.pickupDate + 'T12:00:00')
-                : new Date(o.createdAt || Date.now());
+            const dateRef = parseOrderDate(o);
             return {
                 timestamp: dateRef.getTime(),
                 total: parseFloat(o.totalPrice) || 0,
-                itemsCount: Array.isArray(o.parsedItems)
-                    ? o.parsedItems.reduce((s, i) => s + (i.qty || i.quantity || 1), 0)
+                articleCount: Array.isArray(o.parsedItems)
+                    ? o.parsedItems.reduce((s, i) => s + (parseFloat(i.qty || i.quantity) || 1), 0)
                     : 1,
                 items: Array.isArray(o.parsedItems)
-                    ? o.parsedItems.map(i => ({ name: i.name, quantity: i.qty || i.quantity || 1, price: i.price || 0 }))
+                    ? o.parsedItems.map(i => ({ name: i.name, quantity: parseFloat(i.qty || i.quantity) || 1, price: parseFloat(i.price) || 0 }))
                     : [],
                 source: 'commande',
             };
@@ -84,17 +99,29 @@ function buildDailyData(directEntries, orderEntries, from, to, source) {
     const cur = new Date(from);
     while (cur <= to) {
         const key = cur.toISOString().slice(0, 10);
-        map[key] = { date: fmt(cur), fullDate: fmtFull(new Date(cur)), direct: 0, commande: 0, total: 0, ventes: 0 };
+        map[key] = { date: fmt(cur), fullDate: fmtFull(new Date(cur)), direct: 0, commande: 0, total: 0, ventes: 0, ventes_direct: 0, ventes_commande: 0 };
         cur.setDate(cur.getDate() + 1);
     }
 
     (source !== 'commande' ? directEntries : []).forEach(s => {
         const key = new Date(s.timestamp).toISOString().slice(0, 10);
-        if (map[key]) { map[key].direct += s.total; map[key].total += s.total; map[key].ventes += 1; }
+        const val = parseFloat(s.total) || 0;
+        if (map[key]) {
+            map[key].direct += val;
+            map[key].total += val;
+            map[key].ventes += 1;
+            map[key].ventes_direct += 1;
+        }
     });
     (source !== 'direct' ? orderEntries : []).forEach(o => {
         const key = new Date(o.timestamp).toISOString().slice(0, 10);
-        if (map[key]) { map[key].commande += o.total; map[key].total += o.total; map[key].ventes += 1; }
+        const val = parseFloat(o.total) || 0;
+        if (map[key]) {
+            map[key].commande += val;
+            map[key].total += val;
+            map[key].ventes += 1;
+            map[key].ventes_commande += 1;
+        }
     });
     return Object.values(map);
 }
@@ -104,11 +131,13 @@ function buildHourlyData(directEntries, orderEntries, source) {
     for (let h = 7; h <= 20; h++) map[h] = { name: `${h}h`, direct: 0, commande: 0 };
     (source !== 'commande' ? directEntries : []).forEach(s => {
         const h = new Date(s.timestamp).getHours();
-        if (map[h]) map[h].direct += s.total;
+        const val = parseFloat(s.total) || 0;
+        if (map[h]) map[h].direct += val;
     });
     (source !== 'direct' ? orderEntries : []).forEach(o => {
         const h = new Date(o.timestamp).getHours();
-        if (map[h]) map[h].commande += o.total;
+        const val = parseFloat(o.total) || 0;
+        if (map[h]) map[h].commande += val;
     });
     return Object.values(map);
 }
@@ -157,7 +186,7 @@ function StatCard({ icon, label, value, sub, prevValue }) {
     );
 }
 
-function CustomTooltip({ active, payload, label }) {
+function CustomTooltip({ active, payload, label, chartMode }) {
     if (!active || !payload?.length) return null;
     const fullDate = payload[0]?.payload?.fullDate || label;
     return (
@@ -165,7 +194,7 @@ function CustomTooltip({ active, payload, label }) {
             <p className="tooltip-label">{fullDate}</p>
             {payload.map((p, i) => (
                 <p key={i} style={{ color: p.color, margin: '2px 0', fontSize: '0.85rem' }}>
-                    {p.name === 'direct' ? '🛍 Caisse' : p.name === 'commande' ? '📋 Commande' : p.name === 'total' ? '📊 Total' : p.name} : <strong>{typeof p.value === 'number' ? `${p.value.toFixed(2)} €` : p.value}</strong>
+                    {p.name === 'direct' ? '🛍 Caisse' : p.name === 'commande' ? '📋 Commande' : p.name === 'total' ? '📊 Total' : p.name} : <strong>{typeof p.value === 'number' ? (chartMode === 'revenue' ? `${p.value.toFixed(2)} €` : `${p.value} vente(s)`) : p.value}</strong>
                 </p>
             ))}
         </div>
@@ -184,6 +213,7 @@ export default function Dashboard() {
     const [showCustom, setShowCustom] = useState(false);
     const [source, setSource] = useState('all');   // 'all' | 'direct' | 'commande'
     const [topMode, setTopMode] = useState('qty');
+    const [chartMode, setChartMode] = useState('revenue'); // 'revenue' | 'qty'
     const [chartMetric, setChartMetric] = useState('total'); // 'total' | 'direct' | 'commande'
 
     const loadData = async () => {
@@ -323,13 +353,19 @@ export default function Dashboard() {
                 <div className="chart-card">
                     <div className="chart-card-header">
                         <h3><Activity size={15} /> {showDaily ? 'Évolution par jour' : 'Ventes par heure'}</h3>
-                        {source === 'all' && showDaily && (
+                        <div className="chart-toggles-row">
                             <div className="chart-type-toggle">
-                                <button className={chartMetric === 'total' ? 'active' : ''} onClick={() => setChartMetric('total')}>Total</button>
-                                <button className={chartMetric === 'direct' ? 'active' : ''} onClick={() => setChartMetric('direct')}>Caisse</button>
-                                <button className={chartMetric === 'commande' ? 'active' : ''} onClick={() => setChartMetric('commande')}>Cmd</button>
+                                <button className={chartMode === 'revenue' ? 'active' : ''} onClick={() => setChartMode('revenue')}>CA (€)</button>
+                                <button className={chartMode === 'qty' ? 'active' : ''} onClick={() => setChartMode('qty')}>Nb ventes</button>
                             </div>
-                        )}
+                            {source === 'all' && showDaily && (
+                                <div className="chart-type-toggle">
+                                    <button className={chartMetric === 'total' ? 'active' : ''} onClick={() => setChartMetric('total')}>Tout</button>
+                                    <button className={chartMetric === 'direct' ? 'active' : ''} onClick={() => setChartMetric('direct')}>Caisse</button>
+                                    <button className={chartMetric === 'commande' ? 'active' : ''} onClick={() => setChartMetric('commande')}>VPC</button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <div style={{ width: '100%', height: 270 }}>
                         <ResponsiveContainer>
@@ -337,18 +373,18 @@ export default function Dashboard() {
                                 <LineChart data={dailyData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                                     <XAxis dataKey="date" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => `${v}€`} />
-                                    <Tooltip content={<CustomTooltip />} />
+                                    <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => chartMode === 'revenue' ? `${v}€` : v} />
+                                    <Tooltip content={<CustomTooltip chartMode={chartMode} />} />
                                     {source === 'all' ? (
                                         chartMetric === 'total' ? (
-                                            <Line type="monotone" dataKey="total" stroke="#f472b6" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} name="total" />
+                                            <Line type="monotone" dataKey={chartMode === 'revenue' ? "total" : "ventes"} stroke="#f472b6" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} name="total" />
                                         ) : chartMetric === 'direct' ? (
-                                            <Line type="monotone" dataKey="direct" stroke={SOURCE_COLORS.direct} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} name="direct" />
+                                            <Line type="monotone" dataKey={chartMode === 'revenue' ? "direct" : "ventes_direct"} stroke={SOURCE_COLORS.direct} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} name="direct" />
                                         ) : (
-                                            <Line type="monotone" dataKey="commande" stroke={SOURCE_COLORS.commande} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} name="commande" />
+                                            <Line type="monotone" dataKey={chartMode === 'revenue' ? "commande" : "ventes_commande"} stroke={SOURCE_COLORS.commande} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} name="commande" />
                                         )
                                     ) : (
-                                        <Line type="monotone" dataKey={source} stroke={SOURCE_COLORS[source]} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} name={source} />
+                                        <Line type="monotone" dataKey={chartMode === 'revenue' ? source : "ventes"} stroke={SOURCE_COLORS[source]} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} name={source} />
                                     )}
                                 </LineChart>
                             ) : (

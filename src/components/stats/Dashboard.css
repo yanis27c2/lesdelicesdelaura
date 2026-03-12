@@ -287,9 +287,17 @@
 
 .chart-card-header {
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    margin-bottom: 16px;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.chart-toggles-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .chart-card-header h3 {

@@ -246,11 +246,11 @@ function doGet(e) {
             createdAt: fmtVal(row[2]),
             customerName: fmtVal(row[3]),
             customerPhone: fmtVal(row[4]),
-            pickupDate: fmtVal(row[5]),
+            pickupDate: row[5] instanceof Date ? row[5].toISOString() : fmtVal(row[5]),
             pickupTime: fmtVal(row[6]),
-            productionStartDate: fmtVal(row[7]),
-            totalPrice: row[8],
-            deposit: row[9],
+            productionStartDate: row[7] instanceof Date ? row[7].toISOString() : fmtVal(row[7]),
+            totalPrice: parseFloat(row[8]) || 0,
+            deposit: parseFloat(row[9]) || 0,
             status: fmtVal(row[11]),
             notes: fmtVal(row[12]),
             items: fmtVal(row[13])
@@ -329,12 +329,15 @@ function doGet(e) {
           var dateParts = dateStr.split('/');
           var timestamp = null;
           if (dateParts.length === 3) {
+            // "dd/MM/yyyy" -> "yyyy-MM-dd"
             var isoStr = dateParts[2] + '-' + dateParts[1] + '-' + dateParts[0] + 'T' + (heureStr || '12:00:00');
             var d = new Date(isoStr);
-            if (!isNaN(d.getTime()) && d >= cutoff) {
-              timestamp = d.toISOString();
-            } else if (!isNaN(d.getTime()) && d < cutoff) {
-              continue; // trop ancienne
+            if (!isNaN(d.getTime())) {
+              if (d >= cutoff) {
+                timestamp = d.toISOString();
+              } else {
+                continue; // trop ancienne
+              }
             }
           }
 
