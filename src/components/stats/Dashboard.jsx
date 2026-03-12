@@ -2,16 +2,17 @@ import { useState, useEffect, useMemo } from 'react';
 import {
     BarChart3, TrendingUp, Calendar, Euro, PieChart as PieChartIcon,
     Activity, AlertTriangle, PackageX, ShoppingBag, ArrowUpRight, ArrowDownRight,
-    Minus, ChevronDown, ChevronUp
+    Minus, ChevronDown, ChevronUp, ClipboardList, Store, RefreshCw
 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend
 } from 'recharts';
-import { getAllSales, getProducts } from '../../db/indexedDB';
+import { getAllSales, getProducts, getOrders } from '../../db/indexedDB';
 import './Dashboard.css';
 
 const COLORS = ['#f472b6', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
+const SOURCE_COLORS = { direct: '#f472b6', commande: '#6366f1' };
 
 /* ── Helpers ── */
 const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
@@ -24,9 +25,8 @@ function getPeriodBounds(preset, customFrom, customTo) {
     if (preset === 'today') return { from: startOfDay(now), to: endOfDay(now) };
     if (preset === '7d') { const f = new Date(now); f.setDate(f.getDate() - 6); return { from: startOfDay(f), to: endOfDay(now) }; }
     if (preset === '30d') { const f = new Date(now); f.setDate(f.getDate() - 29); return { from: startOfDay(f), to: endOfDay(now) }; }
-    if (preset === 'custom' && customFrom && customTo) {
+    if (preset === 'custom' && customFrom && customTo)
         return { from: startOfDay(new Date(customFrom)), to: endOfDay(new Date(customTo)) };
-    }
     return { from: startOfDay(now), to: endOfDay(now) };
 }
 
@@ -38,60 +38,91 @@ function getPrevPeriodBounds(preset, customFrom, customTo) {
     return null;
 }
 
-function filterSales(sales, from, to) {
-    return sales.filter(s => {
-        const d = new Date(s.timestamp);
+/* Normalise une commande en "entrée de revenu" */
+function ordersToRevenue(orders) {
+    return orders
+        .filter(o => {
+            const s = o.status || '';
+            return s !== 'cancelled' && o.totalPrice > 0;
+        })
+        .map(o => {
+            // Date de référence : pickupDate ou createdAt
+            const dateRef = o.pickupDate
+                ? new Date(o.pickupDate + 'T12:00:00')
+                : new Date(o.createdAt || Date.now());
+            return {
+                timestamp: dateRef.getTime(),
+                total: parseFloat(o.totalPrice) || 0,
+                itemsCount: Array.isArray(o.parsedItems)
+                    ? o.parsedItems.reduce((s, i) => s + (i.qty || i.quantity || 1), 0)
+                    : 1,
+                items: Array.isArray(o.parsedItems)
+                    ? o.parsedItems.map(i => ({ name: i.name, quantity: i.qty || i.quantity || 1, price: i.price || 0 }))
+                    : [],
+                source: 'commande',
+            };
+        });
+}
+
+function filterByDate(entries, from, to) {
+    return entries.filter(e => {
+        const d = new Date(e.timestamp);
         return d >= from && d <= to;
     });
 }
 
-function computeStats(filtered) {
-    const revenue = filtered.reduce((s, x) => s + x.total, 0);
-    const orders = filtered.length;
-    const items = filtered.reduce((s, x) => s + (x.itemsCount || 0), 0);
+function computeStats(entries) {
+    const revenue = entries.reduce((s, x) => s + x.total, 0);
+    const orders = entries.length;
+    const items = entries.reduce((s, x) => s + (x.itemsCount || 0), 0);
     const avg = orders > 0 ? revenue / orders : 0;
     return { revenue, orders, items, avg };
 }
 
-function buildDailyData(filtered, from, to) {
+function buildDailyData(directEntries, orderEntries, from, to, source) {
     const map = {};
     const cur = new Date(from);
     while (cur <= to) {
         const key = cur.toISOString().slice(0, 10);
-        map[key] = { date: fmt(cur), fullDate: fmtFull(new Date(cur)), ca: 0, ventes: 0 };
+        map[key] = { date: fmt(cur), fullDate: fmtFull(new Date(cur)), direct: 0, commande: 0, total: 0, ventes: 0 };
         cur.setDate(cur.getDate() + 1);
     }
-    filtered.forEach(s => {
+
+    (source !== 'commande' ? directEntries : []).forEach(s => {
         const key = new Date(s.timestamp).toISOString().slice(0, 10);
-        if (map[key]) { map[key].ca += s.total; map[key].ventes += 1; }
+        if (map[key]) { map[key].direct += s.total; map[key].total += s.total; map[key].ventes += 1; }
+    });
+    (source !== 'direct' ? orderEntries : []).forEach(o => {
+        const key = new Date(o.timestamp).toISOString().slice(0, 10);
+        if (map[key]) { map[key].commande += o.total; map[key].total += o.total; map[key].ventes += 1; }
     });
     return Object.values(map);
 }
 
-function buildHourlyData(filtered) {
+function buildHourlyData(directEntries, orderEntries, source) {
     const map = {};
-    for (let h = 7; h <= 20; h++) map[h] = { name: `${h}h`, ca: 0 };
-    filtered.forEach(s => {
+    for (let h = 7; h <= 20; h++) map[h] = { name: `${h}h`, direct: 0, commande: 0 };
+    (source !== 'commande' ? directEntries : []).forEach(s => {
         const h = new Date(s.timestamp).getHours();
-        if (map[h]) map[h].ca += s.total;
+        if (map[h]) map[h].direct += s.total;
+    });
+    (source !== 'direct' ? orderEntries : []).forEach(o => {
+        const h = new Date(o.timestamp).getHours();
+        if (map[h]) map[h].commande += o.total;
     });
     return Object.values(map);
 }
 
-function buildTopProducts(filtered) {
-    const cnt = {};
-    const rev = {};
-    filtered.forEach(s => {
-        (s.items || []).forEach(it => {
-            if (!cnt[it.name]) { cnt[it.name] = 0; rev[it.name] = 0; }
-            cnt[it.name] += it.quantity;
-            rev[it.name] += (it.price || 0) * it.quantity;
-        });
-    });
-    return Object.entries(cnt)
-        .map(([name, qty]) => ({ name, qty, revenue: rev[name] || 0 }))
-        .sort((a, b) => b.qty - a.qty)
-        .slice(0, 6);
+function buildTopProducts(directEntries, orderEntries, source) {
+    const cnt = {}, rev = {};
+    const add = (name, qty, price) => {
+        if (!cnt[name]) { cnt[name] = 0; rev[name] = 0; }
+        cnt[name] += qty; rev[name] += price * qty;
+    };
+    if (source !== 'commande') directEntries.forEach(s => (s.items || []).forEach(it => add(it.name, it.quantity, it.price || 0)));
+    if (source !== 'direct') orderEntries.forEach(o => (o.items || []).forEach(it => add(it.name, it.quantity, it.price || 0)));
+    return Object.entries(cnt).map(([name, qty]) => ({ name, qty, revenue: rev[name] || 0 }))
+        .sort((a, b) => b.qty - a.qty).slice(0, 6);
 }
 
 /* ── Delta Badge ── */
@@ -109,8 +140,8 @@ function Delta({ cur, prev }) {
     );
 }
 
-/* ── Stat Card ── */
 function StatCard({ icon, label, value, sub, prevValue }) {
+    const numVal = typeof value === 'string' ? parseFloat(value) : value;
     return (
         <div className="stat-card">
             <div className="stat-icon-wrap">{icon}</div>
@@ -119,14 +150,13 @@ function StatCard({ icon, label, value, sub, prevValue }) {
                 <span className="stat-value">{value}</span>
                 <div className="stat-footer">
                     {sub && <span className="stat-sub">{sub}</span>}
-                    {prevValue !== undefined && <Delta cur={typeof value === 'string' ? parseFloat(value) : value} prev={prevValue} />}
+                    {prevValue !== undefined && prevValue !== null && <Delta cur={numVal} prev={prevValue} />}
                 </div>
             </div>
         </div>
     );
 }
 
-/* ── Custom Tooltip ── */
 function CustomTooltip({ active, payload, label }) {
     if (!active || !payload?.length) return null;
     const fullDate = payload[0]?.payload?.fullDate || label;
@@ -135,7 +165,7 @@ function CustomTooltip({ active, payload, label }) {
             <p className="tooltip-label">{fullDate}</p>
             {payload.map((p, i) => (
                 <p key={i} style={{ color: p.color, margin: '2px 0', fontSize: '0.85rem' }}>
-                    {p.name === 'ca' ? 'CA' : p.name === 'ventes' ? 'Ventes' : p.name} : <strong>{p.name === 'ca' ? `${p.value.toFixed(2)} €` : p.value}</strong>
+                    {p.name === 'direct' ? '🛍 Caisse' : p.name === 'commande' ? '📋 Commande' : p.name === 'total' ? '📊 Total' : p.name} : <strong>{typeof p.value === 'number' ? `${p.value.toFixed(2)} €` : p.value}</strong>
                 </p>
             ))}
         </div>
@@ -144,66 +174,93 @@ function CustomTooltip({ active, payload, label }) {
 
 /* ══════════════════ MAIN COMPONENT ══════════════════ */
 export default function Dashboard() {
-    const [sales, setSales] = useState([]);
+    const [directSales, setDirectSales] = useState([]);
+    const [orders, setOrders] = useState([]);
     const [products, setProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [preset, setPreset] = useState('7d');
     const [customFrom, setCustomFrom] = useState('');
     const [customTo, setCustomTo] = useState('');
     const [showCustom, setShowCustom] = useState(false);
-    const [chartType, setChartType] = useState('ca'); // 'ca' ou 'ventes'
-    const [topMode, setTopMode] = useState('qty'); // 'qty' ou 'revenue'
+    const [source, setSource] = useState('all');   // 'all' | 'direct' | 'commande'
+    const [topMode, setTopMode] = useState('qty');
+    const [chartMetric, setChartMetric] = useState('total'); // 'total' | 'direct' | 'commande'
 
-    useEffect(() => {
-        getAllSales().then(setSales);
-        getProducts().then(setProducts);
-    }, []);
+    const loadData = async () => {
+        setLoading(true);
+        const [s, o, p] = await Promise.all([getAllSales(), getOrders(), getProducts()]);
+        setDirectSales(s.map(x => ({ ...x, source: 'direct' })));
+        setOrders(o.filter(order => order.type !== 'reassort'));
+        setProducts(p);
+        setLoading(false);
+    };
+
+    useEffect(() => { loadData(); }, []);
 
     const { from, to } = useMemo(() => getPeriodBounds(preset, customFrom, customTo), [preset, customFrom, customTo]);
     const prevBounds = useMemo(() => getPrevPeriodBounds(preset, customFrom, customTo), [preset, customFrom, customTo]);
 
-    const filtered = useMemo(() => filterSales(sales, from, to), [sales, from, to]);
-    const prevFiltered = useMemo(() => prevBounds ? filterSales(sales, prevBounds.from, prevBounds.to) : [], [sales, prevBounds]);
+    // Normalise orders en entrées de revenu
+    const orderRevenue = useMemo(() => ordersToRevenue(orders), [orders]);
 
-    const stats = useMemo(() => computeStats(filtered), [filtered]);
-    const prevStats = useMemo(() => prevBounds ? computeStats(prevFiltered) : null, [prevFiltered, prevBounds]);
+    // Filtre par date
+    const filtDirect = useMemo(() => filterByDate(directSales, from, to), [directSales, from, to]);
+    const filtOrders = useMemo(() => filterByDate(orderRevenue, from, to), [orderRevenue, from, to]);
 
-    const dailyData = useMemo(() => buildDailyData(filtered, from, to), [filtered, from, to]);
-    const hourlyData = useMemo(() => buildHourlyData(filtered), [filtered]);
-    const topProducts = useMemo(() => buildTopProducts(filtered), [filtered]);
+    // Entrées actives selon le filtre source
+    const activeEntries = useMemo(() => {
+        if (source === 'direct') return filtDirect;
+        if (source === 'commande') return filtOrders;
+        return [...filtDirect, ...filtOrders];
+    }, [source, filtDirect, filtOrders]);
 
-    const lowStock = useMemo(() => products.filter(p => p.stock !== undefined && p.alertThreshold > 0 && p.stock <= p.alertThreshold).sort((a, b) => a.stock - b.stock), [products]);
-    const outOfStock = products.filter(p => p.stock === 0);
+    // Période précédente
+    const prevDirect = useMemo(() => prevBounds ? filterByDate(directSales, prevBounds.from, prevBounds.to) : [], [directSales, prevBounds]);
+    const prevOrders = useMemo(() => prevBounds ? filterByDate(orderRevenue, prevBounds.from, prevBounds.to) : [], [orderRevenue, prevBounds]);
+    const prevActive = useMemo(() => {
+        if (source === 'direct') return prevDirect;
+        if (source === 'commande') return prevOrders;
+        return [...prevDirect, ...prevOrders];
+    }, [source, prevDirect, prevOrders]);
+
+    const stats = useMemo(() => computeStats(activeEntries), [activeEntries]);
+    const prevStats = useMemo(() => prevBounds ? computeStats(prevActive) : null, [prevActive, prevBounds]);
+
+    const showDaily = preset !== 'today';
+    const dailyData = useMemo(() => buildDailyData(filtDirect, filtOrders, from, to, source), [filtDirect, filtOrders, from, to, source]);
+    const hourlyData = useMemo(() => buildHourlyData(filtDirect, filtOrders, source), [filtDirect, filtOrders, source]);
+    const topProducts = useMemo(() => buildTopProducts(filtDirect, filtOrders, source), [filtDirect, filtOrders, source]);
+    const lowStock = useMemo(() => products.filter(p => p.alertThreshold > 0 && p.stock <= p.alertThreshold).sort((a, b) => a.stock - b.stock), [products]);
 
     const PRESETS = [
         { id: 'today', label: "Aujourd'hui" },
-        { id: '7d', label: '7 derniers jours' },
-        { id: '30d', label: '30 derniers jours' },
+        { id: '7d', label: '7 jours' },
+        { id: '30d', label: '30 jours' },
         { id: 'custom', label: 'Personnalisé' },
     ];
 
-    const showDaily = preset !== 'today';
-
-    const applyCustom = () => {
-        if (customFrom && customTo) setPreset('custom');
-    };
+    const dataKeys = source === 'all'
+        ? [{ key: 'direct', color: SOURCE_COLORS.direct, label: '🛍 Caisse' }, { key: 'commande', color: SOURCE_COLORS.commande, label: '📋 Commandes' }]
+        : [{ key: source, color: SOURCE_COLORS[source] || '#f472b6', label: source === 'direct' ? '🛍 Caisse' : '📋 Commandes' }];
 
     return (
         <div className="admin-container dash-root" style={{ overflowY: 'auto', paddingBottom: 60 }}>
-            {/* ── Header ── */}
+            {/* Header */}
             <div className="admin-header">
                 <h2><BarChart3 /> Statistiques</h2>
+                <button className="btn-secondary refresh-btn" onClick={loadData} title="Actualiser les données" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: '0.85rem' }}>
+                    <RefreshCw size={15} className={loading ? 'spin' : ''} /> Actualiser
+                </button>
             </div>
 
-            {/* ── Period Selector ── */}
+            {/* Period Selector */}
             <div className="period-bar">
                 <div className="period-tabs">
                     {PRESETS.map(p => (
-                        <button
-                            key={p.id}
+                        <button key={p.id}
                             className={`period-tab ${preset === p.id ? 'active' : ''}`}
-                            onClick={() => { if (p.id === 'custom') setShowCustom(v => !v); else { setPreset(p.id); setShowCustom(false); } }}
-                        >
-                            {p.label} {p.id === 'custom' && (showCustom ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
+                            onClick={() => { if (p.id === 'custom') setShowCustom(v => !v); else { setPreset(p.id); setShowCustom(false); } }}>
+                            {p.label} {p.id === 'custom' && (showCustom ? <ChevronUp size={13} /> : <ChevronDown size={13} />)}
                         </button>
                     ))}
                 </div>
@@ -213,79 +270,96 @@ export default function Dashboard() {
                         <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
                         <label>au</label>
                         <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} />
-                        <button className="btn-primary" style={{ padding: '6px 14px', fontSize: '0.85rem' }} onClick={applyCustom}>Appliquer</button>
+                        <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '0.82rem' }}
+                            onClick={() => { if (customFrom && customTo) { setPreset('custom'); setShowCustom(false); } }}>
+                            Appliquer
+                        </button>
                     </div>
                 )}
                 <div className="period-label">
-                    <Calendar size={14} />
+                    <Calendar size={13} />
                     {preset === 'today' && "Aujourd'hui"}
-                    {preset === '7d' && 'Ce week (7 jours)'}
-                    {preset === '30d' && 'Ce mois (30 jours)'}
-                    {preset === 'custom' && customFrom && customTo && `Du ${fmt(new Date(customFrom))} au ${fmt(new Date(customTo))}`}
+                    {preset === '7d' && '7 derniers jours'}
+                    {preset === '30d' && '30 derniers jours'}
+                    {preset === 'custom' && customFrom && `${fmt(new Date(customFrom))} → ${customTo ? fmt(new Date(customTo)) : '...'}`}
                 </div>
             </div>
 
-            {/* ── KPI Cards ── */}
-            <div className="stats-grid" style={{ marginTop: 24 }}>
-                <StatCard
-                    icon={<div className="stat-icon revenue"><Euro size={22} /></div>}
-                    label="Chiffre d'Affaires"
-                    value={`${stats.revenue.toFixed(2)} €`}
-                    prevValue={prevStats?.revenue}
-                    sub={prevStats ? `vs ${prevStats.revenue.toFixed(2)} € période préc.` : null}
-                />
-                <StatCard
-                    icon={<div className="stat-icon orders"><ShoppingBag size={22} /></div>}
-                    label="Ventes"
-                    value={stats.orders}
-                    prevValue={prevStats?.orders}
-                    sub={prevStats ? `vs ${prevStats.orders} période préc.` : null}
-                />
-                <StatCard
-                    icon={<div className="stat-icon items"><TrendingUp size={22} /></div>}
-                    label="Articles vendus"
-                    value={stats.items}
-                    prevValue={prevStats?.items}
-                />
-                <StatCard
-                    icon={<div className="stat-icon avg"><Activity size={22} /></div>}
-                    label="Ticket moyen"
-                    value={`${stats.avg.toFixed(2)} €`}
-                    prevValue={prevStats?.avg}
-                />
+            {/* Source Filter */}
+            <div className="source-filter">
+                <button className={`source-btn all ${source === 'all' ? 'active' : ''}`} onClick={() => setSource('all')}>
+                    <BarChart3 size={14} /> Tout
+                    <span className="source-count">{filtDirect.length + filtOrders.length}</span>
+                </button>
+                <button className={`source-btn direct ${source === 'direct' ? 'active' : ''}`} onClick={() => setSource('direct')}>
+                    <Store size={14} /> Ventes directes
+                    <span className="source-count">{filtDirect.length}</span>
+                </button>
+                <button className={`source-btn commande ${source === 'commande' ? 'active' : ''}`} onClick={() => setSource('commande')}>
+                    <ClipboardList size={14} /> Commandes
+                    <span className="source-count">{filtOrders.length}</span>
+                </button>
             </div>
 
-            {/* ── Main Chart ── */}
-            <div className="charts-container" style={{ marginTop: 24, display: 'grid', gridTemplateColumns: showDaily ? '2fr 1fr' : '2fr 1fr', gap: 24 }}>
+            {/* KPI Cards */}
+            <div className="stats-grid" style={{ marginTop: 16 }}>
+                <StatCard icon={<div className="stat-icon revenue"><Euro size={22} /></div>}
+                    label="Chiffre d'Affaires" value={`${stats.revenue.toFixed(2)} €`}
+                    prevValue={prevStats?.revenue}
+                    sub={source === 'all' ? `Caisse: ${filtDirect.reduce((s, x) => s + x.total, 0).toFixed(0)}€ · Cmd: ${filtOrders.reduce((s, x) => s + x.total, 0).toFixed(0)}€` : null} />
+                <StatCard icon={<div className="stat-icon orders"><ShoppingBag size={22} /></div>}
+                    label="Transactions" value={stats.orders} prevValue={prevStats?.orders} />
+                <StatCard icon={<div className="stat-icon items"><TrendingUp size={22} /></div>}
+                    label="Articles vendus" value={stats.items} prevValue={prevStats?.items} />
+                <StatCard icon={<div className="stat-icon avg"><Activity size={22} /></div>}
+                    label="Ticket moyen" value={`${stats.avg.toFixed(2)} €`}
+                    prevValue={prevStats?.avg} />
+            </div>
 
-                {/* Daily trend (7d/30d/custom) or Hourly (today) */}
+            {/* Charts */}
+            <div className="charts-container" style={{ marginTop: 20, display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
+
+                {/* Trend Chart */}
                 <div className="chart-card">
                     <div className="chart-card-header">
-                        <h3><Activity size={16} /> {showDaily ? 'Évolution du CA par jour' : 'Ventes par heure'}</h3>
-                        {showDaily && (
+                        <h3><Activity size={15} /> {showDaily ? 'Évolution par jour' : 'Ventes par heure'}</h3>
+                        {source === 'all' && showDaily && (
                             <div className="chart-type-toggle">
-                                <button className={chartType === 'ca' ? 'active' : ''} onClick={() => setChartType('ca')}>CA (€)</button>
-                                <button className={chartType === 'ventes' ? 'active' : ''} onClick={() => setChartType('ventes')}>Nb ventes</button>
+                                <button className={chartMetric === 'total' ? 'active' : ''} onClick={() => setChartMetric('total')}>Total</button>
+                                <button className={chartMetric === 'direct' ? 'active' : ''} onClick={() => setChartMetric('direct')}>Caisse</button>
+                                <button className={chartMetric === 'commande' ? 'active' : ''} onClick={() => setChartMetric('commande')}>Cmd</button>
                             </div>
                         )}
                     </div>
-                    <div style={{ width: '100%', height: 280 }}>
+                    <div style={{ width: '100%', height: 270 }}>
                         <ResponsiveContainer>
                             {showDaily ? (
-                                <LineChart data={dailyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                                <LineChart data={dailyData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                                     <XAxis dataKey="date" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => chartType === 'ca' ? `${v}€` : v} />
+                                    <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => `${v}€`} />
                                     <Tooltip content={<CustomTooltip />} />
-                                    <Line type="monotone" dataKey={chartType} stroke="var(--color-primary)" strokeWidth={2.5} dot={{ fill: 'var(--color-primary)', r: 3 }} activeDot={{ r: 6 }} name={chartType} />
+                                    {source === 'all' ? (
+                                        chartMetric === 'total' ? (
+                                            <Line type="monotone" dataKey="total" stroke="#f472b6" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} name="total" />
+                                        ) : chartMetric === 'direct' ? (
+                                            <Line type="monotone" dataKey="direct" stroke={SOURCE_COLORS.direct} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} name="direct" />
+                                        ) : (
+                                            <Line type="monotone" dataKey="commande" stroke={SOURCE_COLORS.commande} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} name="commande" />
+                                        )
+                                    ) : (
+                                        <Line type="monotone" dataKey={source} stroke={SOURCE_COLORS[source]} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} name={source} />
+                                    )}
                                 </LineChart>
                             ) : (
-                                <BarChart data={hourlyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                                <BarChart data={hourlyData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                                     <XAxis dataKey="name" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
                                     <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => `${v}€`} />
-                                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(244,114,182,0.08)' }} />
-                                    <Bar dataKey="ca" fill="var(--color-primary)" radius={[4, 4, 0, 0]} name="ca" />
+                                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(244,114,182,0.07)' }} />
+                                    <Legend formatter={v => v === 'direct' ? '🛍 Caisse' : '📋 Cmd'} />
+                                    {source !== 'commande' && <Bar dataKey="direct" fill={SOURCE_COLORS.direct} radius={[3, 3, 0, 0]} stackId="a" name="direct" />}
+                                    {source !== 'direct' && <Bar dataKey="commande" fill={SOURCE_COLORS.commande} radius={[3, 3, 0, 0]} stackId="a" name="commande" />}
                                 </BarChart>
                             )}
                         </ResponsiveContainer>
@@ -295,24 +369,17 @@ export default function Dashboard() {
                 {/* Top Products */}
                 <div className="chart-card">
                     <div className="chart-card-header">
-                        <h3><PieChartIcon size={16} /> Top produits</h3>
+                        <h3><PieChartIcon size={15} /> Top produits</h3>
                         <div className="chart-type-toggle">
                             <button className={topMode === 'qty' ? 'active' : ''} onClick={() => setTopMode('qty')}>Qté</button>
                             <button className={topMode === 'revenue' ? 'active' : ''} onClick={() => setTopMode('revenue')}>CA</button>
                         </div>
                     </div>
-
                     {topProducts.length > 0 ? (
                         <>
-                            <ResponsiveContainer width="100%" height={160}>
+                            <ResponsiveContainer width="100%" height={155}>
                                 <PieChart>
-                                    <Pie
-                                        data={topProducts}
-                                        cx="50%" cy="50%"
-                                        innerRadius={45} outerRadius={68}
-                                        paddingAngle={3}
-                                        dataKey={topMode === 'qty' ? 'qty' : 'revenue'}
-                                    >
+                                    <Pie data={topProducts} cx="50%" cy="50%" innerRadius={42} outerRadius={62} paddingAngle={3} dataKey={topMode === 'qty' ? 'qty' : 'revenue'}>
                                         {topProducts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                                     </Pie>
                                     <Tooltip formatter={(v, _n, props) => topMode === 'qty' ? [`${v} unités`, props.payload?.name] : [`${v.toFixed(2)} €`, props.payload?.name]} />
@@ -323,9 +390,7 @@ export default function Dashboard() {
                                     <div key={p.name} className="top-product-row">
                                         <div className="top-product-dot" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                                         <span className="top-product-name">{p.name}</span>
-                                        <span className="top-product-val">
-                                            {topMode === 'qty' ? `${p.qty} u.` : `${p.revenue.toFixed(2)} €`}
-                                        </span>
+                                        <span className="top-product-val">{topMode === 'qty' ? `${p.qty} u.` : `${p.revenue.toFixed(2)} €`}</span>
                                     </div>
                                 ))}
                             </div>
@@ -336,45 +401,44 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* ── Daily breakdown table (7d/30d) ── */}
-            {showDaily && dailyData.some(d => d.ca > 0) && (
-                <div className="chart-card" style={{ marginTop: 24 }}>
+            {/* Daily breakdown table */}
+            {showDaily && dailyData.some(d => d.total > 0) && (
+                <div className="chart-card" style={{ marginTop: 20 }}>
                     <div className="chart-card-header">
-                        <h3><BarChart3 size={16} /> Détail par jour</h3>
+                        <h3><BarChart3 size={15} /> Détail par jour</h3>
                     </div>
                     <div className="day-table">
                         <div className="day-table-head">
                             <span>Date</span>
-                            <span>Ventes</span>
-                            <span>CA</span>
-                            <span>Ticket moy.</span>
+                            <span>Transactions</span>
+                            {source !== 'commande' && <span style={{ color: SOURCE_COLORS.direct }}>Caisse</span>}
+                            {source !== 'direct' && <span style={{ color: SOURCE_COLORS.commande }}>Cmd</span>}
+                            <span>Total</span>
                         </div>
-                        {[...dailyData].reverse().filter(d => d.ca > 0 || d.ventes > 0).map(d => (
+                        {[...dailyData].reverse().filter(d => d.total > 0).map(d => (
                             <div key={d.date} className="day-table-row">
                                 <span>{d.fullDate}</span>
                                 <span>{d.ventes}</span>
-                                <span className="day-ca">{d.ca.toFixed(2)} €</span>
-                                <span>{d.ventes > 0 ? `${(d.ca / d.ventes).toFixed(2)} €` : '—'}</span>
+                                {source !== 'commande' && <span style={{ color: SOURCE_COLORS.direct, fontWeight: 600 }}>{d.direct > 0 ? `${d.direct.toFixed(2)} €` : '—'}</span>}
+                                {source !== 'direct' && <span style={{ color: SOURCE_COLORS.commande, fontWeight: 600 }}>{d.commande > 0 ? `${d.commande.toFixed(2)} €` : '—'}</span>}
+                                <span className="day-ca">{d.total.toFixed(2)} €</span>
                             </div>
                         ))}
                     </div>
                 </div>
             )}
 
-            {/* ── Low Stock Alerts ── */}
-            {(lowStock.length > 0 || outOfStock.length > 0) && (
-                <div className="alert-card" style={{ marginTop: 24 }}>
-                    <h3><AlertTriangle size={18} /> Alertes de stock ({lowStock.length + outOfStock.length})</h3>
+            {/* Low Stock */}
+            {lowStock.length > 0 && (
+                <div className="alert-card" style={{ marginTop: 20 }}>
+                    <h3><AlertTriangle size={17} /> Alertes de stock ({lowStock.length})</h3>
                     <div className="stock-alert-grid">
                         {lowStock.map(p => (
                             <div key={p.id} className={`stock-alert-item ${p.stock === 0 ? 'out' : 'low'}`}>
-                                <PackageX size={18} />
+                                <PackageX size={17} />
                                 <div>
                                     <div className="stock-name">{p.name}</div>
-                                    <div className="stock-qty">
-                                        {p.stock === 0 ? '🔴 RUPTURE' : `🟡 ${p.stock} restant${p.stock > 1 ? 's' : ''}`}
-                                        {p.alertThreshold > 0 && ` / seuil ${p.alertThreshold}`}
-                                    </div>
+                                    <div className="stock-qty">{p.stock === 0 ? '🔴 RUPTURE' : `🟡 ${p.stock} restant${p.stock > 1 ? 's' : ''}`} / seuil {p.alertThreshold}</div>
                                 </div>
                             </div>
                         ))}

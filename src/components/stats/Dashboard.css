@@ -5,6 +5,90 @@
     gap: 16px;
 }
 
+.dashboard-placeholder {
+    margin-top: 24px;
+    background-color: var(--color-surface);
+    border-radius: var(--radius-lg);
+    padding: 48px;
+    text-align: center;
+    color: var(--color-text-muted);
+    border: 1px dashed var(--color-border);
+}
+
+/* ── Source Filter ── */
+.source-filter {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.source-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 10px;
+    border: 1.5px solid var(--color-border);
+    background: var(--color-surface);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    transition: all 0.15s;
+}
+
+.source-btn:hover {
+    border-color: var(--color-primary);
+    color: var(--color-text);
+}
+
+.source-btn.all.active {
+    border-color: #64748b;
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+.source-btn.direct.active {
+    border-color: #f472b6;
+    background: #fdf2f8;
+    color: #9d174d;
+}
+
+.source-btn.commande.active {
+    border-color: #6366f1;
+    background: #eef2ff;
+    color: #3730a3;
+}
+
+.source-count {
+    background: var(--color-surface-alt, #f1f5f9);
+    color: var(--color-text-muted);
+    border-radius: 20px;
+    padding: 1px 7px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.source-btn.active .source-count {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Spin animation (refresh button) ── */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spin {
+    animation: spin 0.8s linear infinite;
+}
+
+.refresh-btn {
+    flex-shrink: 0;
+}
+
 .stat-card {
     background: var(--color-surface);
     border-radius: var(--radius-lg);
