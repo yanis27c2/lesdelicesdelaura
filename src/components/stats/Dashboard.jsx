@@ -1,200 +1,379 @@
-import { useState, useEffect } from 'react';
-import { BarChart3, TrendingUp, Calendar, DollarSign, PieChart as PieChartIcon, Activity, AlertTriangle, PackageX } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { useState, useEffect, useMemo } from 'react';
+import {
+    BarChart3, TrendingUp, Calendar, Euro, PieChart as PieChartIcon,
+    Activity, AlertTriangle, PackageX, ShoppingBag, ArrowUpRight, ArrowDownRight,
+    Minus, ChevronDown, ChevronUp
+} from 'lucide-react';
+import {
+    BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+    PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend
+} from 'recharts';
 import { getAllSales, getProducts } from '../../db/indexedDB';
 import './Dashboard.css';
 
-const COLORS = ['#f472b6', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
+const COLORS = ['#f472b6', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
 
+/* ── Helpers ── */
+const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+const endOfDay = (d) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+const fmt = (d) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+const fmtFull = (d) => d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+
+function getPeriodBounds(preset, customFrom, customTo) {
+    const now = new Date();
+    if (preset === 'today') return { from: startOfDay(now), to: endOfDay(now) };
+    if (preset === '7d') { const f = new Date(now); f.setDate(f.getDate() - 6); return { from: startOfDay(f), to: endOfDay(now) }; }
+    if (preset === '30d') { const f = new Date(now); f.setDate(f.getDate() - 29); return { from: startOfDay(f), to: endOfDay(now) }; }
+    if (preset === 'custom' && customFrom && customTo) {
+        return { from: startOfDay(new Date(customFrom)), to: endOfDay(new Date(customTo)) };
+    }
+    return { from: startOfDay(now), to: endOfDay(now) };
+}
+
+function getPrevPeriodBounds(preset, customFrom, customTo) {
+    const now = new Date();
+    if (preset === 'today') { const y = new Date(now); y.setDate(y.getDate() - 1); return { from: startOfDay(y), to: endOfDay(y) }; }
+    if (preset === '7d') { const f = new Date(now); f.setDate(f.getDate() - 13); const t = new Date(now); t.setDate(t.getDate() - 7); return { from: startOfDay(f), to: endOfDay(t) }; }
+    if (preset === '30d') { const f = new Date(now); f.setDate(f.getDate() - 59); const t = new Date(now); t.setDate(t.getDate() - 30); return { from: startOfDay(f), to: endOfDay(t) }; }
+    return null;
+}
+
+function filterSales(sales, from, to) {
+    return sales.filter(s => {
+        const d = new Date(s.timestamp);
+        return d >= from && d <= to;
+    });
+}
+
+function computeStats(filtered) {
+    const revenue = filtered.reduce((s, x) => s + x.total, 0);
+    const orders = filtered.length;
+    const items = filtered.reduce((s, x) => s + (x.itemsCount || 0), 0);
+    const avg = orders > 0 ? revenue / orders : 0;
+    return { revenue, orders, items, avg };
+}
+
+function buildDailyData(filtered, from, to) {
+    const map = {};
+    const cur = new Date(from);
+    while (cur <= to) {
+        const key = cur.toISOString().slice(0, 10);
+        map[key] = { date: fmt(cur), fullDate: fmtFull(new Date(cur)), ca: 0, ventes: 0 };
+        cur.setDate(cur.getDate() + 1);
+    }
+    filtered.forEach(s => {
+        const key = new Date(s.timestamp).toISOString().slice(0, 10);
+        if (map[key]) { map[key].ca += s.total; map[key].ventes += 1; }
+    });
+    return Object.values(map);
+}
+
+function buildHourlyData(filtered) {
+    const map = {};
+    for (let h = 7; h <= 20; h++) map[h] = { name: `${h}h`, ca: 0 };
+    filtered.forEach(s => {
+        const h = new Date(s.timestamp).getHours();
+        if (map[h]) map[h].ca += s.total;
+    });
+    return Object.values(map);
+}
+
+function buildTopProducts(filtered) {
+    const cnt = {};
+    const rev = {};
+    filtered.forEach(s => {
+        (s.items || []).forEach(it => {
+            if (!cnt[it.name]) { cnt[it.name] = 0; rev[it.name] = 0; }
+            cnt[it.name] += it.quantity;
+            rev[it.name] += (it.price || 0) * it.quantity;
+        });
+    });
+    return Object.entries(cnt)
+        .map(([name, qty]) => ({ name, qty, revenue: rev[name] || 0 }))
+        .sort((a, b) => b.qty - a.qty)
+        .slice(0, 6);
+}
+
+/* ── Delta Badge ── */
+function Delta({ cur, prev }) {
+    if (prev === null || prev === undefined) return null;
+    if (prev === 0 && cur === 0) return <span className="delta neutral"><Minus size={12} /> —</span>;
+    if (prev === 0) return <span className="delta positive"><ArrowUpRight size={12} /> +∞</span>;
+    const p = ((cur - prev) / prev) * 100;
+    const pos = p >= 0;
+    return (
+        <span className={`delta ${pos ? 'positive' : 'negative'}`}>
+            {pos ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+            {pos ? '+' : ''}{p.toFixed(1)}%
+        </span>
+    );
+}
+
+/* ── Stat Card ── */
+function StatCard({ icon, label, value, sub, prevValue }) {
+    return (
+        <div className="stat-card">
+            <div className="stat-icon-wrap">{icon}</div>
+            <div className="stat-info">
+                <h3>{label}</h3>
+                <span className="stat-value">{value}</span>
+                <div className="stat-footer">
+                    {sub && <span className="stat-sub">{sub}</span>}
+                    {prevValue !== undefined && <Delta cur={typeof value === 'string' ? parseFloat(value) : value} prev={prevValue} />}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ── Custom Tooltip ── */
+function CustomTooltip({ active, payload, label }) {
+    if (!active || !payload?.length) return null;
+    const fullDate = payload[0]?.payload?.fullDate || label;
+    return (
+        <div className="chart-tooltip">
+            <p className="tooltip-label">{fullDate}</p>
+            {payload.map((p, i) => (
+                <p key={i} style={{ color: p.color, margin: '2px 0', fontSize: '0.85rem' }}>
+                    {p.name === 'ca' ? 'CA' : p.name === 'ventes' ? 'Ventes' : p.name} : <strong>{p.name === 'ca' ? `${p.value.toFixed(2)} €` : p.value}</strong>
+                </p>
+            ))}
+        </div>
+    );
+}
+
+/* ══════════════════ MAIN COMPONENT ══════════════════ */
 export default function Dashboard() {
     const [sales, setSales] = useState([]);
-    const [stats, setStats] = useState({ totalRevenue: 0, totalOrders: 0, itemsSold: 0 });
-    const [hourlyData, setHourlyData] = useState([]);
-    const [topProducts, setTopProducts] = useState([]);
-    const [lowStockProducts, setLowStockProducts] = useState([]);
+    const [products, setProducts] = useState([]);
+    const [preset, setPreset] = useState('7d');
+    const [customFrom, setCustomFrom] = useState('');
+    const [customTo, setCustomTo] = useState('');
+    const [showCustom, setShowCustom] = useState(false);
+    const [chartType, setChartType] = useState('ca'); // 'ca' ou 'ventes'
+    const [topMode, setTopMode] = useState('qty'); // 'qty' ou 'revenue'
 
     useEffect(() => {
-        const fetchSales = async () => {
-            try {
-                const data = await getAllSales();
-                setSales(data);
-
-                // Calculate basic stats for today
-                const today = new Date().toDateString();
-                const todaySales = data.filter(s => new Date(s.timestamp).toDateString() === today);
-
-                const total = todaySales.reduce((sum, s) => sum + s.total, 0);
-                const items = todaySales.reduce((sum, s) => sum + s.itemsCount, 0);
-
-                setStats({
-                    totalRevenue: total,
-                    totalOrders: todaySales.length,
-                    itemsSold: items
-                });
-
-                // Calculate Hourly Sales Data
-                const hourlyMap = {};
-                for (let i = 8; i <= 20; i++) hourlyMap[i] = { name: `${i}h`, ventes: 0 };
-
-                todaySales.forEach(sale => {
-                    const hour = new Date(sale.timestamp).getHours();
-                    if (hourlyMap[hour]) {
-                        hourlyMap[hour].ventes += sale.total;
-                    }
-                });
-                setHourlyData(Object.values(hourlyMap));
-
-                // Calculate Best Sellers Pipeline
-                const productsCount = {};
-                data.forEach(sale => {
-                    sale.items.forEach(item => {
-                        if (!productsCount[item.name]) productsCount[item.name] = 0;
-                        productsCount[item.name] += item.quantity;
-                    });
-                });
-
-                const sortedProducts = Object.entries(productsCount)
-                    .map(([name, value]) => ({ name, value }))
-                    .sort((a, b) => b.value - a.value)
-                    .slice(0, 5); // Top 5
-
-                setTopProducts(sortedProducts);
-
-                // Fetch low stock products (threshold: stock <= 5)
-                const allProducts = await getProducts();
-                const lowStock = allProducts
-                    .filter(p => p.stock !== undefined && p.stock <= 5)
-                    .sort((a, b) => a.stock - b.stock);
-                setLowStockProducts(lowStock);
-
-            } catch (err) {
-                console.error(err);
-            }
-        };
-
-        fetchSales();
+        getAllSales().then(setSales);
+        getProducts().then(setProducts);
     }, []);
 
+    const { from, to } = useMemo(() => getPeriodBounds(preset, customFrom, customTo), [preset, customFrom, customTo]);
+    const prevBounds = useMemo(() => getPrevPeriodBounds(preset, customFrom, customTo), [preset, customFrom, customTo]);
+
+    const filtered = useMemo(() => filterSales(sales, from, to), [sales, from, to]);
+    const prevFiltered = useMemo(() => prevBounds ? filterSales(sales, prevBounds.from, prevBounds.to) : [], [sales, prevBounds]);
+
+    const stats = useMemo(() => computeStats(filtered), [filtered]);
+    const prevStats = useMemo(() => prevBounds ? computeStats(prevFiltered) : null, [prevFiltered, prevBounds]);
+
+    const dailyData = useMemo(() => buildDailyData(filtered, from, to), [filtered, from, to]);
+    const hourlyData = useMemo(() => buildHourlyData(filtered), [filtered]);
+    const topProducts = useMemo(() => buildTopProducts(filtered), [filtered]);
+
+    const lowStock = useMemo(() => products.filter(p => p.stock !== undefined && p.alertThreshold > 0 && p.stock <= p.alertThreshold).sort((a, b) => a.stock - b.stock), [products]);
+    const outOfStock = products.filter(p => p.stock === 0);
+
+    const PRESETS = [
+        { id: 'today', label: "Aujourd'hui" },
+        { id: '7d', label: '7 derniers jours' },
+        { id: '30d', label: '30 derniers jours' },
+        { id: 'custom', label: 'Personnalisé' },
+    ];
+
+    const showDaily = preset !== 'today';
+
+    const applyCustom = () => {
+        if (customFrom && customTo) setPreset('custom');
+    };
+
     return (
-        <div className="admin-container" style={{ overflowY: 'auto', paddingBottom: '60px' }}>
+        <div className="admin-container dash-root" style={{ overflowY: 'auto', paddingBottom: 60 }}>
+            {/* ── Header ── */}
             <div className="admin-header">
-                <h2><BarChart3 /> Menu de Synthèse</h2>
+                <h2><BarChart3 /> Statistiques</h2>
             </div>
 
-            <div className="stats-grid">
-                <div className="stat-card">
-                    <div className="stat-icon revenue"><DollarSign size={24} /></div>
-                    <div className="stat-info">
-                        <h3>Chiffre d'Affaires (Auj.)</h3>
-                        <span className="stat-value">{stats.totalRevenue.toFixed(2)} €</span>
-                    </div>
+            {/* ── Period Selector ── */}
+            <div className="period-bar">
+                <div className="period-tabs">
+                    {PRESETS.map(p => (
+                        <button
+                            key={p.id}
+                            className={`period-tab ${preset === p.id ? 'active' : ''}`}
+                            onClick={() => { if (p.id === 'custom') setShowCustom(v => !v); else { setPreset(p.id); setShowCustom(false); } }}
+                        >
+                            {p.label} {p.id === 'custom' && (showCustom ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
+                        </button>
+                    ))}
                 </div>
-
-                <div className="stat-card">
-                    <div className="stat-icon orders"><Calendar size={24} /></div>
-                    <div className="stat-info">
-                        <h3>Commandes (Auj.)</h3>
-                        <span className="stat-value">{stats.totalOrders}</span>
+                {showCustom && (
+                    <div className="custom-range">
+                        <label>Du</label>
+                        <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
+                        <label>au</label>
+                        <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} />
+                        <button className="btn-primary" style={{ padding: '6px 14px', fontSize: '0.85rem' }} onClick={applyCustom}>Appliquer</button>
                     </div>
-                </div>
-
-                <div className="stat-card">
-                    <div className="stat-icon items"><TrendingUp size={24} /></div>
-                    <div className="stat-info">
-                        <h3>Articles Vendus (Auj.)</h3>
-                        <span className="stat-value">{stats.itemsSold}</span>
-                    </div>
+                )}
+                <div className="period-label">
+                    <Calendar size={14} />
+                    {preset === 'today' && "Aujourd'hui"}
+                    {preset === '7d' && 'Ce week (7 jours)'}
+                    {preset === '30d' && 'Ce mois (30 jours)'}
+                    {preset === 'custom' && customFrom && customTo && `Du ${fmt(new Date(customFrom))} au ${fmt(new Date(customTo))}`}
                 </div>
             </div>
 
-            <div className="charts-container" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '24px', marginTop: '24px' }}>
+            {/* ── KPI Cards ── */}
+            <div className="stats-grid" style={{ marginTop: 24 }}>
+                <StatCard
+                    icon={<div className="stat-icon revenue"><Euro size={22} /></div>}
+                    label="Chiffre d'Affaires"
+                    value={`${stats.revenue.toFixed(2)} €`}
+                    prevValue={prevStats?.revenue}
+                    sub={prevStats ? `vs ${prevStats.revenue.toFixed(2)} € période préc.` : null}
+                />
+                <StatCard
+                    icon={<div className="stat-icon orders"><ShoppingBag size={22} /></div>}
+                    label="Ventes"
+                    value={stats.orders}
+                    prevValue={prevStats?.orders}
+                    sub={prevStats ? `vs ${prevStats.orders} période préc.` : null}
+                />
+                <StatCard
+                    icon={<div className="stat-icon items"><TrendingUp size={22} /></div>}
+                    label="Articles vendus"
+                    value={stats.items}
+                    prevValue={prevStats?.items}
+                />
+                <StatCard
+                    icon={<div className="stat-icon avg"><Activity size={22} /></div>}
+                    label="Ticket moyen"
+                    value={`${stats.avg.toFixed(2)} €`}
+                    prevValue={prevStats?.avg}
+                />
+            </div>
 
-                {/* Hourly Chart */}
-                <div className="chart-card" style={{ backgroundColor: 'var(--color-surface)', padding: '24px', borderRadius: '16px', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)' }}>
-                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-text-muted)', marginBottom: '24px' }}><Activity size={18} /> Ventes par Heure (Aujourd'hui)</h3>
-                    <div style={{ width: '100%', height: 300 }}>
+            {/* ── Main Chart ── */}
+            <div className="charts-container" style={{ marginTop: 24, display: 'grid', gridTemplateColumns: showDaily ? '2fr 1fr' : '2fr 1fr', gap: 24 }}>
+
+                {/* Daily trend (7d/30d/custom) or Hourly (today) */}
+                <div className="chart-card">
+                    <div className="chart-card-header">
+                        <h3><Activity size={16} /> {showDaily ? 'Évolution du CA par jour' : 'Ventes par heure'}</h3>
+                        {showDaily && (
+                            <div className="chart-type-toggle">
+                                <button className={chartType === 'ca' ? 'active' : ''} onClick={() => setChartType('ca')}>CA (€)</button>
+                                <button className={chartType === 'ventes' ? 'active' : ''} onClick={() => setChartType('ventes')}>Nb ventes</button>
+                            </div>
+                        )}
+                    </div>
+                    <div style={{ width: '100%', height: 280 }}>
                         <ResponsiveContainer>
-                            <BarChart data={hourlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}€`} />
-                                <Tooltip cursor={{ fill: 'rgba(244, 114, 182, 0.1)' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} />
-                                <Bar dataKey="ventes" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
-                            </BarChart>
+                            {showDaily ? (
+                                <LineChart data={dailyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                                    <XAxis dataKey="date" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => chartType === 'ca' ? `${v}€` : v} />
+                                    <Tooltip content={<CustomTooltip />} />
+                                    <Line type="monotone" dataKey={chartType} stroke="var(--color-primary)" strokeWidth={2.5} dot={{ fill: 'var(--color-primary)', r: 3 }} activeDot={{ r: 6 }} name={chartType} />
+                                </LineChart>
+                            ) : (
+                                <BarChart data={hourlyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                                    <XAxis dataKey="name" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => `${v}€`} />
+                                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(244,114,182,0.08)' }} />
+                                    <Bar dataKey="ca" fill="var(--color-primary)" radius={[4, 4, 0, 0]} name="ca" />
+                                </BarChart>
+                            )}
                         </ResponsiveContainer>
                     </div>
                 </div>
 
-                {/* Top Products Pie Chart */}
-                <div className="chart-card" style={{ backgroundColor: 'var(--color-surface)', padding: '24px', borderRadius: '16px', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)' }}>
-                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-text-muted)', marginBottom: '8px' }}><PieChartIcon size={18} /> Top 5 (Global)</h3>
+                {/* Top Products */}
+                <div className="chart-card">
+                    <div className="chart-card-header">
+                        <h3><PieChartIcon size={16} /> Top produits</h3>
+                        <div className="chart-type-toggle">
+                            <button className={topMode === 'qty' ? 'active' : ''} onClick={() => setTopMode('qty')}>Qté</button>
+                            <button className={topMode === 'revenue' ? 'active' : ''} onClick={() => setTopMode('revenue')}>CA</button>
+                        </div>
+                    </div>
 
                     {topProducts.length > 0 ? (
-                        <div style={{ width: '100%', height: 300, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <ResponsiveContainer width="100%" height={220}>
+                        <>
+                            <ResponsiveContainer width="100%" height={160}>
                                 <PieChart>
                                     <Pie
                                         data={topProducts}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="value"
+                                        cx="50%" cy="50%"
+                                        innerRadius={45} outerRadius={68}
+                                        paddingAngle={3}
+                                        dataKey={topMode === 'qty' ? 'qty' : 'revenue'}
                                     >
-                                        {topProducts.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
+                                        {topProducts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                                     </Pie>
-                                    <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} />
+                                    <Tooltip formatter={(v, _n, props) => topMode === 'qty' ? [`${v} unités`, props.payload?.name] : [`${v.toFixed(2)} €`, props.payload?.name]} />
                                 </PieChart>
                             </ResponsiveContainer>
-                            <div className="pie-legend" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
-                                {topProducts.slice(0, 3).map((p, i) => (
-                                    <div key={p.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: COLORS[i] }} />
-                                            <span style={{ color: 'var(--color-text-muted)', maxWidth: '120px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
-                                        </div>
-                                        <span style={{ fontWeight: 600 }}>{p.value} ut.</span>
+                            <div className="top-products-list">
+                                {topProducts.map((p, i) => (
+                                    <div key={p.name} className="top-product-row">
+                                        <div className="top-product-dot" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                                        <span className="top-product-name">{p.name}</span>
+                                        <span className="top-product-val">
+                                            {topMode === 'qty' ? `${p.qty} u.` : `${p.revenue.toFixed(2)} €`}
+                                        </span>
                                     </div>
                                 ))}
                             </div>
-                        </div>
+                        </>
                     ) : (
-                        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-                            Pas encore de données.
-                        </div>
+                        <div className="chart-empty">Pas de ventes sur cette période.</div>
                     )}
                 </div>
-
             </div>
 
-            {/* Low Stock Alarms */}
-            {lowStockProducts.length > 0 && (
-                <div style={{ marginTop: '24px', backgroundColor: '#fff7ed', border: '1px solid #fb923c', borderRadius: '16px', padding: '24px' }}>
-                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#c2410c', marginBottom: '16px' }}>
-                        <AlertTriangle size={20} /> Alertes de Stock ({lowStockProducts.length} produit{lowStockProducts.length > 1 ? 's' : ''})
-                    </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
-                        {lowStockProducts.map(p => (
-                            <div key={p.id} style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '12px',
-                                padding: '12px 16px',
-                                borderRadius: '12px',
-                                backgroundColor: p.stock === 0 ? '#fee2e2' : '#fff',
-                                border: `1px solid ${p.stock === 0 ? '#f87171' : '#fed7aa'}`
-                            }}>
-                                <PackageX size={20} color={p.stock === 0 ? '#ef4444' : '#f97316'} />
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-text)' }}>{p.name}</div>
-                                    <div style={{
-                                        fontSize: '0.8rem',
-                                        fontWeight: 700,
-                                        color: p.stock === 0 ? '#ef4444' : '#f97316'
-                                    }}>
-                                        {p.stock === 0 ? '🔴 RUPTURE DE STOCK' : `🟡 Plus que ${p.stock} restant${p.stock > 1 ? 's' : ''}`}
+            {/* ── Daily breakdown table (7d/30d) ── */}
+            {showDaily && dailyData.some(d => d.ca > 0) && (
+                <div className="chart-card" style={{ marginTop: 24 }}>
+                    <div className="chart-card-header">
+                        <h3><BarChart3 size={16} /> Détail par jour</h3>
+                    </div>
+                    <div className="day-table">
+                        <div className="day-table-head">
+                            <span>Date</span>
+                            <span>Ventes</span>
+                            <span>CA</span>
+                            <span>Ticket moy.</span>
+                        </div>
+                        {[...dailyData].reverse().filter(d => d.ca > 0 || d.ventes > 0).map(d => (
+                            <div key={d.date} className="day-table-row">
+                                <span>{d.fullDate}</span>
+                                <span>{d.ventes}</span>
+                                <span className="day-ca">{d.ca.toFixed(2)} €</span>
+                                <span>{d.ventes > 0 ? `${(d.ca / d.ventes).toFixed(2)} €` : '—'}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* ── Low Stock Alerts ── */}
+            {(lowStock.length > 0 || outOfStock.length > 0) && (
+                <div className="alert-card" style={{ marginTop: 24 }}>
+                    <h3><AlertTriangle size={18} /> Alertes de stock ({lowStock.length + outOfStock.length})</h3>
+                    <div className="stock-alert-grid">
+                        {lowStock.map(p => (
+                            <div key={p.id} className={`stock-alert-item ${p.stock === 0 ? 'out' : 'low'}`}>
+                                <PackageX size={18} />
+                                <div>
+                                    <div className="stock-name">{p.name}</div>
+                                    <div className="stock-qty">
+                                        {p.stock === 0 ? '🔴 RUPTURE' : `🟡 ${p.stock} restant${p.stock > 1 ? 's' : ''}`}
+                                        {p.alertThreshold > 0 && ` / seuil ${p.alertThreshold}`}
                                     </div>
                                 </div>
                             </div>
