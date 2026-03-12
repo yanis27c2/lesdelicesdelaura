@@ -6,7 +6,7 @@ import {
     clearAllSales, clearAllExpenses, clearAllZReports,
     saveOrder, saveDevis, getUnsyncedStockHistory, clearStockHistory,
     saveProduct, deleteProduct, saveCategory, getCustomers,
-    clearCatalog, clearAllOrders, clearAllDevis, saveSale, clearAllSales
+    clearCatalog, clearAllOrders, clearAllDevis, saveSale
 } from '../../db/indexedDB';
 import './SyncManager.css';
 
