@@ -28,6 +28,19 @@ const toKey = (d) => {
     return `${y}-${m}-${day}`;
 };
 
+const parseOrderDate = (o) => {
+    if (!o) return new Date();
+    if (o.pickupDate) {
+        const d = new Date(o.pickupDate);
+        if (!isNaN(d.getTime())) return d;
+    }
+    if (o.createdAt) {
+        const d = new Date(o.createdAt);
+        if (!isNaN(d.getTime())) return d;
+    }
+    return new Date();
+};
+
 function getPeriodBounds(preset, customFrom, customTo) {
     const now = new Date();
     if (preset === 'today') return { from: startOfDay(now), to: endOfDay(now) };
@@ -46,42 +59,25 @@ function getPrevPeriodBounds(preset, customFrom, customTo) {
     return null;
 }
 
-const parseOrderDate = (o) => {
-    if (!o) return new Date();
-    // 1. Essayer pickupDate (ISO string YYYY-MM-DD ou Date object)
-    if (o.pickupDate) {
-        const d = new Date(o.pickupDate);
-        if (!isNaN(d.getTime())) return d;
-    }
-    // 2. Essayer pickupTime ou d'autres champs de date
-    if (o.createdAt) {
-        const d = new Date(o.createdAt);
-        if (!isNaN(d.getTime())) return d;
-    }
-    return new Date();
-};
-
 /* Normalise une commande en "entrée de revenu" */
 function ordersToRevenue(orders) {
     return orders
         .filter(o => {
             const s = (o.status || '').toLowerCase();
-            // Seulement les commandes payées/récupérées comptent comme CA réalisé
-            // Mais pour les stats 'Commandes', on veut peut-être tout voir ?
-            // L'utilisateur veut voir le cumul, donc on prend tout ce qui est validé
-            return s !== 'cancelled' && s !== 'brouillon' && o.totalPrice > 0;
+            return s !== 'cancelled' && s !== 'brouillon' && parseFloat(o.totalPrice) > 0;
         })
         .map(o => {
             const dateRef = parseOrderDate(o);
+            const items = Array.isArray(o.parsedItems) ? o.parsedItems : [];
             return {
                 timestamp: dateRef.getTime(),
                 total: parseFloat(o.totalPrice) || 0,
-                articleCount: Array.isArray(o.parsedItems)
-                    ? o.parsedItems.reduce((s, i) => s + (parseFloat(i.qty || i.quantity) || 1), 0)
-                    : 1,
-                items: Array.isArray(o.parsedItems)
-                    ? o.parsedItems.map(i => ({ name: i.name, quantity: parseFloat(i.qty || i.quantity) || 1, price: parseFloat(i.price) || 0 }))
-                    : [],
+                itemsCount: items.reduce((s, it) => s + (parseFloat(it.qty || it.quantity) || 1), 0),
+                items: items.map(it => ({
+                    name: it.name,
+                    quantity: parseFloat(it.qty || it.quantity) || 1,
+                    price: parseFloat(it.price) || 0
+                })),
                 source: 'commande',
             };
         });
@@ -111,26 +107,29 @@ function buildDailyData(directEntries, orderEntries, from, to, source) {
         cur.setDate(cur.getDate() + 1);
     }
 
-    (source !== 'commande' ? directEntries : []).forEach(s => {
-        const key = toKey(s.timestamp);
-        const val = parseFloat(s.total) || 0;
-        if (map[key]) {
-            map[key].direct += val;
-            map[key].total += val;
-            map[key].ventes += 1;
-            map[key].ventes_direct += 1;
-        }
-    });
-    (source !== 'direct' ? orderEntries : []).forEach(o => {
-        const key = toKey(o.timestamp);
-        const val = parseFloat(o.total) || 0;
-        if (map[key]) {
-            map[key].commande += val;
-            map[key].total += val;
-            map[key].ventes += 1;
-            map[key].ventes_commande += 1;
-        }
-    });
+    if (source !== 'commande') {
+        directEntries.forEach(s => {
+            const key = toKey(s.timestamp);
+            if (map[key]) {
+                map[key].direct += s.total;
+                map[key].total += s.total;
+                map[key].ventes += 1;
+                map[key].ventes_direct += 1;
+            }
+        });
+    }
+
+    if (source !== 'direct') {
+        orderEntries.forEach(o => {
+            const key = toKey(o.timestamp);
+            if (map[key]) {
+                map[key].commande += o.total;
+                map[key].total += o.total;
+                map[key].ventes += 1;
+                map[key].ventes_commande += 1;
+            }
+        });
+    }
     return Object.values(map);
 }
 
@@ -227,7 +226,19 @@ export default function Dashboard() {
     const loadData = async () => {
         setLoading(true);
         const [s, o, p] = await Promise.all([getAllSales(), getOrders(), getProducts()]);
-        setDirectSales(s.map(x => ({ ...x, source: 'direct' })));
+
+        // Normaliser les ventes directes
+        const normalizedSales = s.map(x => ({
+            timestamp: new Date(x.timestamp).getTime(),
+            total: parseFloat(x.total) || 0,
+            itemsCount: Array.isArray(x.items)
+                ? x.items.reduce((acc, it) => acc + (parseFloat(it.quantity) || 1), 0)
+                : 0,
+            items: Array.isArray(x.items) ? x.items : [],
+            source: 'direct'
+        }));
+
+        setDirectSales(normalizedSales);
         setOrders(o.filter(order => order.type !== 'reassort'));
         setProducts(p);
         setLoading(false);
