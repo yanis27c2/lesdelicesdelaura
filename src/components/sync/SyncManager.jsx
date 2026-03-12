@@ -6,7 +6,7 @@ import {
     clearAllSales, clearAllExpenses, clearAllZReports,
     saveOrder, saveDevis, getUnsyncedStockHistory, clearStockHistory,
     saveProduct, deleteProduct, saveCategory, getCustomers,
-    clearCatalog, clearAllOrders, clearAllDevis
+    clearCatalog, clearAllOrders, clearAllDevis, saveSale, clearAllSales
 } from '../../db/indexedDB';
 import './SyncManager.css';
 
@@ -220,6 +220,7 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
                 let productsUpdated = 0;
                 let commandesUpdated = 0;
                 let devisUpdated = 0;
+                let salesUpdated = 0;
 
                 // ── 1. CATALOGUE : remplacement complet ──────────────────
                 // Google Sheets est la source de vérité pour les produits
@@ -345,11 +346,22 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
                     }
                 }
 
+                // ── 4. VENTES : remplacement complet ─────────────────────
+                if (data.ventes && Array.isArray(data.ventes)) {
+                    await clearAllSales();
+                    for (const s of data.ventes) {
+                        if (!s.id) continue;
+                        await saveSale(s);
+                        salesUpdated++;
+                    }
+                }
+
                 resolve({
                     success: true,
                     commandes: commandesUpdated,
                     devis: devisUpdated,
-                    catalogue: productsUpdated
+                    catalogue: productsUpdated,
+                    ventes: salesUpdated
                 });
             } catch (err) {
                 console.warn('Erreur durant la fusion locale:', err);

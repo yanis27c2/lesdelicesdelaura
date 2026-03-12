@@ -37,10 +37,14 @@ function App() {
       if (navigator.onLine) {
         console.log('Online at startup, attempting inbound sync...');
         const result = await syncFromCloud(saveOrder, saveDevis);
-        if (result && result.success && (result.commandes > 0 || result.devis > 0)) {
-          setSyncToast(`Cloud check: +${result.commandes} commandes, +${result.devis} devis`);
-          setTimeout(() => setSyncToast(null), 4000);
-          window.dispatchEvent(new Event('catalogUpdated')); // trigger refresh
+        if (result && result.success) {
+          const total = (result.catalogue || 0) + (result.commandes || 0) + (result.devis || 0) + (result.ventes || 0);
+          if (total > 0) {
+            setSyncToast(`Cloud check: +${result.ventes || 0} ventes, +${result.commandes || 0} commandes`);
+            setTimeout(() => setSyncToast(null), 5000);
+            window.dispatchEvent(new Event('catalogUpdated')); // refresh POS
+            window.dispatchEvent(new Event('saleAdded'));       // refresh Stats
+          }
         }
       }
     };

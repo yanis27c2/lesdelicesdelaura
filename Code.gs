@@ -306,11 +306,72 @@ function doGet(e) {
         result.catalogue = [];
       }
 
+      // ── Ventes (90 derniers jours, regroupées par ID Vente) ──
+      // Colonnes: 0=ID Vente, 1=Date (dd/MM/yyyy), 2=Heure (HH:mm:ss),
+      //           3=Article, 4=Quantité, 5=Prix Unitaire,
+      //           6=Sous-total Article, 7=Total Vente, 8=Remise,
+      //           9=Mode Paiement, 10=Montant Donné, 11=Rendu
+      var sheetVentes = ss.getSheetByName('Ventes');
+      if (sheetVentes && sheetVentes.getLastRow() > 1) {
+        var ventesData = sheetVentes.getDataRange().getValues();
+        var ventesMap = {}; // grouper par ID Vente
+        var cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 90); // 90 derniers jours
+
+        for (var v = 1; v < ventesData.length; v++) {
+          var vrow = ventesData[v];
+          var saleId = String(vrow[0]);
+          if (!saleId) continue;
+
+          // Parser la date "dd/MM/yyyy" + heure "HH:mm:ss"
+          var dateStr = String(vrow[1]);
+          var heureStr = String(vrow[2]);
+          var dateParts = dateStr.split('/');
+          var timestamp = null;
+          if (dateParts.length === 3) {
+            var isoStr = dateParts[2] + '-' + dateParts[1] + '-' + dateParts[0] + 'T' + (heureStr || '12:00:00');
+            var d = new Date(isoStr);
+            if (!isNaN(d.getTime()) && d >= cutoff) {
+              timestamp = d.toISOString();
+            } else if (!isNaN(d.getTime()) && d < cutoff) {
+              continue; // trop ancienne
+            }
+          }
+
+          if (!ventesMap[saleId]) {
+            ventesMap[saleId] = {
+              id: saleId,
+              timestamp: timestamp || new Date().toISOString(),
+              total: parseFloat(vrow[7]) || 0,
+              discount: parseFloat(vrow[8]) || 0,
+              paymentMethod: String(vrow[9] || 'Espèces'),
+              amountGiven: parseFloat(vrow[10]) || 0,
+              change: parseFloat(vrow[11]) || 0,
+              items: [],
+              itemsCount: 0
+            };
+          }
+
+          // Ajouter l'article à la vente
+          var artName = String(vrow[3] || '');
+          var artQty  = parseInt(vrow[4]) || 1;
+          var artPrice = parseFloat(vrow[5]) || 0;
+          if (artName && artName !== '(non détaillé)') {
+            ventesMap[saleId].items.push({ name: artName, quantity: artQty, price: artPrice });
+            ventesMap[saleId].itemsCount += artQty;
+          }
+        }
+        result.ventes = Object.values(ventesMap);
+      } else {
+        result.ventes = [];
+      }
+
       var jsonString = JSON.stringify({ 
         status: 'ok', 
         commandes: result.commandes || [],
         devis: result.devis || [],
-        catalogue: result.catalogue || []
+        catalogue: result.catalogue || [],
+        ventes: result.ventes || []
       });
       
       // JSONP support
