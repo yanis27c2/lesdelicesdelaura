@@ -15,8 +15,8 @@
 
 /* ── Category tabs ── */
 .category-tabs {
-    display: flex;
-    justify-content: flex-end;
+    display: flex !important;
+    justify-content: flex-end !important;
     gap: 8px;
     overflow-x: auto;
     padding-bottom: 4px;
@@ -59,8 +59,8 @@
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    display: flex;
-    justify-content: flex-start;
+    display: flex !important;
+    justify-content: flex-end !important;
     align-items: flex-start;
     padding: 4px 0 8px 0;
 }
@@ -73,7 +73,7 @@
     max-width: 580px;
     align-content: start;
     box-sizing: border-box;
-    margin-left: auto;
+    margin-left: auto !important;
 }
 
 /* Tablette portrait / iPad (≤900px) : 2 colonnes */
