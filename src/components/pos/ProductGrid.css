@@ -59,7 +59,7 @@
     overflow-y: auto;
     overflow-x: hidden;
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-start;
     align-items: flex-start;
     padding: 4px 0 8px 0;
 }
@@ -69,10 +69,10 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(110px, 170px));
     gap: 10px;
-    width: 100%;
     max-width: 580px;
     align-content: start;
     box-sizing: border-box;
+    margin-left: auto;
 }
 
 /* Tablette portrait / iPad (≤900px) : 2 colonnes */
