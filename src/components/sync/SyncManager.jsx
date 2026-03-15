@@ -327,12 +327,13 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
                             customerPhone: order.customerPhone || '',
                             pickupDate: order.pickupDate ? String(order.pickupDate).slice(0, 10) : '',
                             pickupTime: order.pickupTime || '',
-                            productionStartDate: order.productionStartDate || '',
+                            productionStartDate: order.productionStartDate ? String(order.productionStartDate).slice(0, 10) : '',
                             totalPrice: parseFloat(order.totalPrice) || 0,
                             deposit: parseFloat(order.deposit) || 0,
                             status: order.status || 'en_attente',
                             notes: order.notes || '',
                             items: order.items || '',
+                            parsedItems: order.parsedItems || [],
                         });
                         commandesUpdated++;
                     }

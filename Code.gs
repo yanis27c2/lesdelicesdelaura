@@ -124,7 +124,7 @@ function doPost(e) {
         'ID', 'Type', 'Date Création', 'Nom Client', 'Téléphone',
         'Date Retrait', 'Heure Retrait', 'Début Production',
         'Total (€)', 'Acompte (€)', 'Reste à Payer (€)',
-        'Statut', 'Notes', 'Détail Articles'
+        'Statut', 'Notes', 'Détail Articles', 'Parsed Items'
       ]);
       data.commandes.forEach(function(c) {
         var createdAt = c.createdAt
@@ -138,7 +138,8 @@ function doPost(e) {
           c.pickupDate || '', c.pickupTime || '', c.productionStartDate || '',
           total, deposit, Math.max(0, total - deposit),
           c.status || 'en_attente',
-          c.notes || '', c.items || ''
+          c.notes || '', c.items || '',
+          JSON.stringify(c.parsedItems || [])
         ];
         // Upsert : chercher la ligne existante avec ce ID
         upsertRow(sheetCmd, c.id, row);
@@ -227,33 +228,51 @@ function doGet(e) {
       if (sheetCmd && sheetCmd.getLastRow() > 1) {
         var cmdData = sheetCmd.getDataRange().getValues();
         var commandes = [];
-        // Exposer les vrais headers pour debug
-        result.cmdHeaders = cmdData[0].map(function(h) { return String(h); });
+        
         for (var i = 1; i < cmdData.length; i++) {
           var row = cmdData[i];
-          // Formater une valeur : si c'est un objet Date, le convertir en string lisible
+          
           function fmtVal(v) {
             if (v instanceof Date && !isNaN(v.getTime())) {
               return Utilities.formatDate(v, 'Europe/Paris', 'dd/MM/yyyy HH:mm');
             }
             return v !== null && v !== undefined ? String(v) : '';
           }
+
+          function isoDate(v) {
+             if (v instanceof Date && !isNaN(v.getTime())) {
+                return Utilities.formatDate(v, 'Europe/Paris', 'yyyy-MM-dd');
+             }
+             if (typeof v === 'string' && v.match(/^\d{4}-\d{2}-\d{2}/)) return v.slice(0,10);
+             return v !== null && v !== undefined ? String(v) : '';
+          }
+
           var status = fmtVal(row[11]);
           if (status === 'recupere' || status === 'collected') continue;
+
+          var parsedItemsJson = row[14] || '[]';
+          var parsedItems = [];
+          try {
+             parsedItems = JSON.parse(parsedItemsJson);
+          } catch(e) {
+             parsedItems = [];
+          }
+
           commandes.push({
             id: row[0],
             type: fmtVal(row[1]),
             createdAt: fmtVal(row[2]),
             customerName: fmtVal(row[3]),
             customerPhone: fmtVal(row[4]),
-            pickupDate: row[5] instanceof Date ? row[5].toISOString() : fmtVal(row[5]),
+            pickupDate: isoDate(row[5]),
             pickupTime: fmtVal(row[6]),
-            productionStartDate: row[7] instanceof Date ? row[7].toISOString() : fmtVal(row[7]),
+            productionStartDate: isoDate(row[7]),
             totalPrice: parseFloat(row[8]) || 0,
             deposit: parseFloat(row[9]) || 0,
             status: fmtVal(row[11]),
             notes: fmtVal(row[12]),
-            items: fmtVal(row[13])
+            items: fmtVal(row[13]),
+            parsedItems: parsedItems
           });
         }
         result.commandes = commandes;

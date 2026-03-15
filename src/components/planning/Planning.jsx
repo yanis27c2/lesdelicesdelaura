@@ -27,7 +27,9 @@ const MONTHS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juill
 
 function fmt(dateStr, opts = {}) {
     if (!dateStr) return null;
-    const d = new Date(dateStr + 'T12:00:00');
+    // Standardisation forcee car Sheets peut renvoyer des ISO strings avec l'heure
+    const baseDate = String(dateStr).slice(0, 10);
+    const d = new Date(baseDate + 'T12:00:00');
     if (isNaN(d.getTime())) return null;
     return d.toLocaleDateString('fr-FR', {
         weekday: 'long', day: 'numeric', month: 'long', ...opts
@@ -36,9 +38,12 @@ function fmt(dateStr, opts = {}) {
 
 function daysFromNow(dateStr) {
     if (!dateStr) return null;
-    const d = new Date(dateStr + 'T12:00:00');
+    const baseDate = String(dateStr).slice(0, 10);
+    const d = new Date(baseDate + 'T12:00:00');
     if (isNaN(d.getTime())) return null;
-    return Math.round((d - new Date()) / (1000 * 60 * 60 * 24));
+    const todayAtNoon = new Date();
+    todayAtNoon.setHours(12, 0, 0, 0);
+    return Math.round((d - todayAtNoon) / (1000 * 60 * 60 * 24));
 }
 
 /* ── Urgency badge ── */
