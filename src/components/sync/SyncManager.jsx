@@ -293,9 +293,7 @@ export default function SyncManager({ isOnline }) {
             <div className="sync-help-section">
                 <h3 className="sync-help-title"><ShieldAlert size={16} /> Aide & Secours</h3>
                 
-                <div style={{ marginBottom: 12, padding: 8, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: '0.8rem' }}>
-                    <strong>Mémoire iPad :</strong> {pendingCount} ventes à envoyer, {counts.orders} commandes, {counts.devis} devis.
-                </div>
+
 
                 <p className="sync-help-text">
                     Si vos commandes ne s'affichent plus ou si vous voulez faire une sauvegarde manuelle sur votre iPad :
