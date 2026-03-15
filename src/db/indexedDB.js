@@ -218,6 +218,40 @@ export const saveSale = async (saleData, isImport = false) => {
                 }
             });
             resolve(saleId);
+        };
+        request.onerror = (event) => reject(event.target.error);
+    });
+};
+
+export const getUnsyncedSales = async () => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_SALES], 'readonly');
+        const store = transaction.objectStore(STORE_SALES);
+        const index = store.index('synced');
+        const request = index.getAll(IDBKeyRange.only(false));
+
+        request.onsuccess = (event) => resolve(event.target.result);
+        request.onerror = (event) => reject(event.target.error);
+    });
+};
+
+export const getAllSales = async () => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_SALES], 'readonly');
+        const store = transaction.objectStore(STORE_SALES);
+        const request = store.getAll();
+
+        request.onsuccess = (event) => resolve(event.target.result);
+        request.onerror = (event) => reject(event.target.error);
+    });
+}
+
+export const markSalesAsSynced = async (saleIds) => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_SALES], 'readwrite');
         const store = transaction.objectStore(STORE_SALES);
 
         transaction.oncomplete = () => resolve(true);
@@ -313,6 +347,20 @@ export const getExpenses = async () => {
     });
 };
 
+export const getUnsyncedExpenses = async () => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_EXPENSES], 'readonly');
+        const store = transaction.objectStore(STORE_EXPENSES);
+        const request = store.getAll();
+        request.onsuccess = (event) => {
+            const items = event.target.result;
+            resolve(items.filter(i => i.synced === false || i.synced === undefined));
+        };
+        request.onerror = (event) => reject(event.target.error);
+    });
+};
+
 export const saveExpense = async (expenseData) => {
     await initDB();
     return new Promise((resolve, reject) => {
@@ -346,6 +394,20 @@ export const getZReports = async () => {
         const request = transaction.objectStore(STORE_Z_REPORTS).getAll();
         request.onsuccess = e => resolve(e.target.result);
         request.onerror = e => reject(e.target.error);
+    });
+};
+
+export const getUnsyncedZReports = async () => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_Z_REPORTS], 'readonly');
+        const store = transaction.objectStore(STORE_Z_REPORTS);
+        const request = store.getAll();
+        request.onsuccess = (event) => {
+            const items = event.target.result;
+            resolve(items.filter(i => i.synced === false || i.synced === undefined));
+        };
+        request.onerror = (event) => reject(event.target.error);
     });
 };
 
@@ -392,6 +454,16 @@ export const deleteCustomer = async (id) => {
         const transaction = db.transaction([STORE_CUSTOMERS], 'readwrite');
         const request = transaction.objectStore(STORE_CUSTOMERS).delete(id);
         request.onsuccess = e => resolve(e.target.result);
+        request.onerror = e => reject(e.target.error);
+    });
+};
+
+export const clearAllCustomers = async () => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_CUSTOMERS], 'readwrite');
+        const request = transaction.objectStore(STORE_CUSTOMERS).clear();
+        request.onsuccess = () => resolve(true);
         request.onerror = e => reject(e.target.error);
     });
 };
