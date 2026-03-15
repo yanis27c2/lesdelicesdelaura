@@ -309,7 +309,7 @@ export default function SyncManager({ isOnline }) {
             </div>
 
             {lastSync && !isSyncing && (
-                <div className="sync-last-time">Dernier sync : {lastSync}</div>
+                <div className="sync-last-time">Dernier sync : {lastSync} | v1.0.4</div>
             )}
         </div>
     );
@@ -470,7 +470,10 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
     };
 
         const script = document.createElement('script');
-        script.src = `${GOOGLE_SCRIPT_URL}?action=getData&callback=${callbackName}`;
+        const url = GOOGLE_SCRIPT_URL.includes('?') 
+            ? `${GOOGLE_SCRIPT_URL}&action=getData&callback=${callbackName}&_=${Date.now()}`
+            : `${GOOGLE_SCRIPT_URL}?action=getData&callback=${callbackName}&_=${Date.now()}`;
+        script.src = url;
         script.id = callbackName;
         script.onerror = () => {
             clearTimeout(timeout);
