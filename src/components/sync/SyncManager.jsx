@@ -15,6 +15,42 @@ export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz9rk-
 
 const LAST_SYNC_KEY = 'bakery_last_sync';
 
+// --- HELPERS (Top-level for access by syncFromCloud) ---
+
+function fromSheetDate(str) {
+    if (!str || typeof str !== 'string') return '';
+    if (str.match(/^\d{2}\/\d{2}\/\d{4}/)) {
+        const [d, m, y] = str.split('/');
+        return `${y}-${m}-${d}`;
+    }
+    return String(str).slice(0, 10); // Fallback for YYYY-MM-DD
+}
+
+function toSheetDate(str) {
+    if (!str || typeof str !== 'string') return '';
+    if (str.match(/^\d{4}-\d{2}-\d{2}/)) {
+        const [y, m, d] = str.split('-');
+        return `${d}/${m}/${y}`;
+    }
+    return str;
+}
+
+function fmtDateTime(isoStr) {
+    if (!isoStr) return '';
+    try {
+        const d = new Date(isoStr);
+        if (isNaN(d.getTime())) return isoStr;
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        return `${day}/${month}/${year} ${hours}:${minutes}`;
+    } catch (e) {
+        return String(isoStr);
+    }
+}
+
 export default function SyncManager({ isOnline }) {
     const [lastSync, setLastSync] = useState(() => localStorage.getItem(LAST_SYNC_KEY));
     const [pendingCount, setPendingCount] = useState(0);
@@ -139,40 +175,8 @@ export default function SyncManager({ isOnline }) {
         }
     };
 
-    // Helpers for date standardization
-function fromSheetDate(str) {
-    if (!str) return '';
-    if (str.match(/^\d{2}\/\d{2}\/\d{4}/)) {
-        const [d, m, y] = str.split('/');
-        return `${y}-${m}-${d}`;
-    }
-    return str.slice(0, 10); // Fallback for YYYY-MM-DD
-}
+    // handleSync ends here...
 
-function toSheetDate(str) {
-    if (!str) return '';
-    if (str.match(/^\d{4}-\d{2}-\d{2}/)) {
-        const [y, m, d] = str.split('-');
-        return `${d}/${m}/${y}`;
-    }
-    return str;
-}
-
-function fmtDateTime(isoStr) {
-    if (!isoStr) return '';
-    try {
-        const d = new Date(isoStr);
-        if (isNaN(d.getTime())) return isoStr;
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        const hours = String(d.getHours()).padStart(2, '0');
-        const minutes = String(d.getMinutes()).padStart(2, '0');
-        return `${day}/${month}/${year} ${hours}:${minutes}`;
-    } catch (e) {
-        return isoStr;
-    }
-}
     const handlePurgeLocal = async () => {
         const confirmed = window.confirm(
             "⚠️ ATTENTION : Purger les données locales ?\n\n" +
