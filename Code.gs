@@ -285,7 +285,15 @@ function doGet(e) {
           }
 
           var status = fmtVal(row[3]);
-          if (status === 'recupere' || status === 'collected') continue;
+          
+          // Filtrer par date (30 jours max) pour les commandes aussi
+          var dateStr = String(row[4] || '');
+          var pickupTimestamp = null;
+          if (dateStr.includes('/')) {
+            var parts = dateStr.split('/');
+            var d = new Date(parts[2], parts[1]-1, parts[0]);
+            if (!isNaN(d.getTime()) && d < cutoff) continue;
+          }
 
           var parsedItemsJson = row[15] || '[]';
           var parsedItems = [];
@@ -394,11 +402,9 @@ function doGet(e) {
             }
           }
 
-          if (!ventesMap[saleId]) {
-            ventesMap[saleId] = {
               id: saleId,
               timestamp: timestamp || new Date().toISOString(),
-              total: parseFloat(vrow[7]) || 0,
+              total: 0, // Sera calculé par la somme de la colonne G
               discount: parseFloat(vrow[8]) || 0,
               paymentMethod: String(vrow[9] || 'Espèces'),
               amountGiven: parseFloat(vrow[10]) || 0,
@@ -411,6 +417,9 @@ function doGet(e) {
           var artName = String(vrow[3] || '');
           var artQty  = parseInt(vrow[4]) || 1;
           var artPrice = parseFloat(vrow[5]) || 0;
+          var subtotal = parseFloat(vrow[6]) || 0; // Colonne G (index 6) : Sous-total Article
+          
+          ventesMap[saleId].total += subtotal; // Somme des sous-totaux pour le total vente
           if (artName && artName !== '(non détaillé)') {
             ventesMap[saleId].items.push({ name: artName, quantity: artQty, price: artPrice });
             ventesMap[saleId].itemsCount += artQty;

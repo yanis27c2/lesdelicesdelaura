@@ -375,7 +375,7 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
                     await clearAllOrders();
                     for (const order of data.commandes) {
                         try {
-                            if (String(order.status || 'en_attente') === 'recupere' || String(order.status || 'en_attente') === 'collected') continue;
+                            // On accepte toutes les commandes renvoyées par le script (déjà filtrées à 30j)
 
                             const parsedItems = typeof order.parsedItems === 'string' ? JSON.parse(order.parsedItems) : (order.parsedItems || []);
                             await saveOrderFn({
