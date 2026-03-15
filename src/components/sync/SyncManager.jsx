@@ -90,8 +90,10 @@ export default function SyncManager({ isOnline }) {
     // Effacer le toast après 5 s
     const showResult = (result) => {
         setSyncResult(result);
-        clearTimeout(resultTimer.current);
-        resultTimer.current = setTimeout(() => setSyncResult(null), 5000);
+        if (result.success) {
+            clearTimeout(resultTimer.current);
+            resultTimer.current = setTimeout(() => setSyncResult(null), 5000);
+        }
     };
 
     const handleSync = async () => {
@@ -226,7 +228,11 @@ export default function SyncManager({ isOnline }) {
                 showResult({ success: false, message: `Erreur cloud: ${result.message || 'Inconnue'}` });
             }
         } catch (err) {
-            showResult({ success: false, message: `Erreur : ${err.message}` });
+            showResult({ 
+                success: false, 
+                message: "L'importation a échoué", 
+                details: err.message || String(err) 
+            });
         } finally {
             setIsDownloading(false);
         }
@@ -237,9 +243,16 @@ export default function SyncManager({ isOnline }) {
     return (
         <div className="sync-wrapper">
             {syncResult && (
-                <div className={`sync-result-toast ${syncResult.success ? 'toast-success' : 'toast-error'}`}>
+                <div className={`sync-result-toast ${syncResult.success ? 'toast-success' : 'toast-error'}`} onClick={() => setSyncResult(null)}>
                     {syncResult.success ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
-                    {syncResult.message}
+                    <div style={{ flex: 1 }}>
+                        <div>{syncResult.message}</div>
+                        {!syncResult.success && syncResult.details && (
+                           <div style={{ fontSize: '10px', marginTop: '4px', opacity: 0.8, borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '4px' }}>
+                             Détails : {syncResult.details}
+                           </div>
+                        )}
+                    </div>
                 </div>
             )}
             <div className="sync-btn-group">
@@ -308,7 +321,7 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
         const timeout = setTimeout(() => {
             cleanup();
             console.warn('Sync cloud entrante timeout.');
-            resolve({ success: false, message: 'Délai dépassé (45s). Vérifiez votre connexion ou les réglages du script.' });
+            resolve({ success: false, message: 'Délai dépassé (45s)', details: 'Le serveur met trop de temps à répondre ou votre connexion est instable.' });
         }, 45000);
 
         window[callbackName] = function (data) {
@@ -465,7 +478,8 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
             console.warn('Sync cloud entrante script erreur.');
             resolve({ 
                 success: false, 
-                message: 'Erreur de connexion : Le script est bloqué (Safari/iPad) ou l\'URL est incorrecte.' 
+                message: 'Erreur de connexion',
+                details: 'Le script Google est bloqué par Safari (suivi intersite) ou l\'URL est inaccessible.' 
             });
         };
 
