@@ -71,6 +71,14 @@ function getPrevPeriodBounds(preset, customFrom, customTo) {
     if (preset === 'today') { const y = new Date(now); y.setDate(y.getDate() - 1); return { from: startOfDay(y), to: endOfDay(y) }; }
     if (preset === '7d') { const f = new Date(now); f.setDate(f.getDate() - 13); const t = new Date(now); t.setDate(t.getDate() - 7); return { from: startOfDay(f), to: endOfDay(t) }; }
     if (preset === '30d') { const f = new Date(now); f.setDate(f.getDate() - 59); const t = new Date(now); t.setDate(t.getDate() - 30); return { from: startOfDay(f), to: endOfDay(t) }; }
+    if (preset === 'custom' && customFrom && customTo) {
+        const d1 = new Date(customFrom);
+        const d2 = new Date(customTo);
+        const diff = Math.abs(d2 - d1);
+        const f = new Date(d1.getTime() - diff - 86400000);
+        const t = new Date(d1.getTime() - 86400000);
+        return { from: startOfDay(f), to: endOfDay(t) };
+    }
     return null;
 }
 
@@ -180,7 +188,7 @@ function buildTopProducts(directEntries, orderEntries, source) {
 function Delta({ cur, prev }) {
     if (prev === null || prev === undefined) return null;
     if (prev === 0 && cur === 0) return <span className="delta neutral"><Minus size={12} /> —</span>;
-    if (prev === 0) return <span className="delta positive"><ArrowUpRight size={12} /> +∞</span>;
+    if (prev === 0) return <span className="delta positive"><ArrowUpRight size={12} /> +100%</span>;
     const p = ((cur - prev) / prev) * 100;
     const pos = p >= 0;
     return (
@@ -343,9 +351,22 @@ export default function Dashboard() {
             {/* Header */}
             <div className="admin-header">
                 <h2><BarChart3 /> Statistiques</h2>
-                <button className="btn-secondary refresh-btn" onClick={loadData} title="Actualiser les données" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: '0.85rem' }}>
-                    <RefreshCw size={15} className={loading ? 'spin' : ''} /> Actualiser
-                </button>
+                <div style={{ display: 'flex', gap: 10 }}>
+                    <button className="btn-secondary refresh-btn" onClick={() => {
+                        const csv = dailyData.map(d => `${d.fullDate},${d.direct.toFixed(2)},${d.commande.toFixed(2)},${d.total.toFixed(2)}`).join('\n');
+                        const blob = new Blob([`Date,Caisse,Commandes,Total\n${csv}`], { type: 'text/csv' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `stats_${preset}_${new Date().toISOString().slice(0, 10)}.csv`;
+                        a.click();
+                    }} title="Exporter en CSV" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: '0.85rem' }}>
+                        <Download size={15} /> Exporter
+                    </button>
+                    <button className="btn-secondary refresh-btn" onClick={loadData} title="Actualiser les données" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: '0.85rem' }}>
+                        <RefreshCw size={15} className={loading ? 'spin' : ''} /> Actualiser
+                    </button>
+                </div>
             </div>
 
             {/* Period Selector */}
@@ -401,7 +422,7 @@ export default function Dashboard() {
                 <StatCard icon={<div className="stat-icon revenue"><Euro size={22} /></div>}
                     label="Chiffre d'Affaires" value={`${stats.revenue.toFixed(2)} €`}
                     prevValue={prevStats?.revenue}
-                    sub={source === 'all' ? `Caisse: ${filtDirect.reduce((s, x) => s + x.total, 0).toFixed(0)}€ · Cmd: ${filtOrders.reduce((s, x) => s + x.total, 0).toFixed(0)}€` : null} />
+                    sub={source === 'all' ? `Caisse: ${filtDirect.reduce((s, x) => s + x.total, 0).toFixed(2)}€ · Cmd: ${filtOrders.reduce((s, x) => s + x.total, 0).toFixed(2)}€` : null} />
                 <StatCard icon={<div className="stat-icon orders"><ShoppingBag size={22} /></div>}
                     label="Transactions" value={stats.orders} prevValue={prevStats?.orders} />
                 <StatCard icon={<div className="stat-icon items"><TrendingUp size={22} /></div>}
@@ -442,7 +463,7 @@ export default function Dashboard() {
                                 <div className="chart-type-toggle">
                                     <button className={chartMetric === 'total' ? 'active' : ''} onClick={() => setChartMetric('total')}>Tout</button>
                                     <button className={chartMetric === 'direct' ? 'active' : ''} onClick={() => setChartMetric('direct')}>Caisse</button>
-                                    <button className={chartMetric === 'commande' ? 'active' : ''} onClick={() => setChartMetric('commande')}>VPC</button>
+                                    <button className={chartMetric === 'commande' ? 'active' : ''} onClick={() => setChartMetric('commande')}>Commandes</button>
                                 </div>
                             )}
                         </div>
@@ -473,7 +494,7 @@ export default function Dashboard() {
                                     <XAxis dataKey="name" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
                                     <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => `${v}€`} />
                                     <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(244,114,182,0.07)' }} />
-                                    <Legend formatter={v => v === 'direct' ? '🛍 Caisse' : '📋 Cmd'} />
+                                    <Legend formatter={v => v === 'direct' ? '🛍 Caisse' : '📋 Commandes'} />
                                     {source !== 'commande' && <Bar dataKey="direct" fill={SOURCE_COLORS.direct} radius={[3, 3, 0, 0]} stackId="a" name="direct" />}
                                     {source !== 'direct' && <Bar dataKey="commande" fill={SOURCE_COLORS.commande} radius={[3, 3, 0, 0]} stackId="a" name="commande" />}
                                 </BarChart>

@@ -30,3 +30,11 @@ Voici comment configurer le lien gratuit et sécurisé entre votre caisse enregi
    `const GOOGLE_SCRIPT_URL = 'VOTRE_LIEN_GOOGLE_APP_SCRIPT_ICI';`
    Par votre véritable lien (en gardant les guillemets).
 3. Et c'est tout ! Votre caisse enverra les données directement à Google Sheets quand vous cliquerez sur le bouton Synchroniser.
+
+## 🛠️ Dépannage iPad / Safari
+Si l'importation ou l'envoi ne fonctionne pas sur votre iPad :
+
+1. **Vérifiez le Déploiement** : Dans Google Apps Script, vérifiez que l'accès est bien réglé sur **"Tous"** (Anyone) et non "Tous les utilisateurs disposant d'un compte Google". C'est l'erreur la plus fréquente.
+2. **Confidentialité Safari** : Allez dans les **Réglages** de l'iPad > **Safari** > décochez **"Empêcher le suivi intersite"**. Safari peut parfois bloquer la connexion au script Google par sécurité.
+3. **Connexion Internet** : L'importation peut prendre du temps (jusqu'à 45s). Assurez-vous d'avoir une connexion stable.
+4. **Vider le Cache** : Si vous avez mis à jour le script, fermez l'application sur l'iPad et rechargez-la pour forcer la mise à jour.

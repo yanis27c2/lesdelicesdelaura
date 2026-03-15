@@ -176,10 +176,11 @@
     display: inline-flex;
     align-items: center;
     gap: 2px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 8px;
+    text-transform: uppercase;
 }
 
 .delta.positive {

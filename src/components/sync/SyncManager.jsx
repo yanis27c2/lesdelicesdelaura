@@ -308,8 +308,8 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
         const timeout = setTimeout(() => {
             cleanup();
             console.warn('Sync cloud entrante timeout.');
-            resolve({ success: false, message: 'Délai dépassé (15s)' });
-        }, 15000);
+            resolve({ success: false, message: 'Délai dépassé (45s). Vérifiez votre connexion ou les réglages du script.' });
+        }, 45000);
 
         window[callbackName] = async function (data) {
             clearTimeout(timeout);
@@ -458,7 +458,10 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
             clearTimeout(timeout);
             cleanup();
             console.warn('Sync cloud entrante script erreur.');
-            resolve({ success: false, message: 'Erreur de connexion au serveur' });
+            resolve({ 
+                success: false, 
+                message: 'Erreur de connexion : Le script est bloqué (Safari/iPad) ou l\'URL est incorrecte.' 
+            });
         };
 
         function cleanup() {

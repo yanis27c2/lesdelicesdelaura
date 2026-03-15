@@ -243,71 +243,60 @@ function doGet(e) {
     try {
       var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
       var result = {};
+      var cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 30); 
 
-      // ── Commandes actives (tout sauf récupéré) ──
-      // Lecture par position (ordre identique à doPost) + formatage des dates
-      // Colonnes (doPost): 0=ID, 1=Type, 2=Date Création, 3=Nom Client, 4=Tél,
-      //   5=Date Retrait, 6=Heure Retrait, 7=Début Production,
-      //   8=Total (€), 9=Acompte (€), 10=Reste, 11=Statut, 12=Notes, 13=Détail Articles
+      // --- Helpers ---
+      function fmtVal(v) {
+        if (v instanceof Date && !isNaN(v.getTime())) {
+          if (v.getFullYear() < 1970) return Utilities.formatDate(v, 'Europe/Paris', 'HH:mm');
+          return Utilities.formatDate(v, 'Europe/Paris', 'dd/MM/yyyy HH:mm');
+        }
+        var str = (v !== null && v !== undefined) ? String(v) : '';
+        if (str.indexOf('Dec 30 1899') !== -1) return ''; 
+        return str;
+      }
+
+      function parseDate(v) {
+        if (v instanceof Date && !isNaN(v.getTime())) return v;
+        if (typeof v === 'string') {
+          var parts;
+          if (v.match(/^\d{2}\/\d{2}\/\d{4}/)) {
+            parts = v.split(/[\/\s:]/);
+            return new Date(parts[2], parts[1]-1, parts[0], parts[3]||12, parts[4]||0);
+          }
+          if (v.match(/^\d{4}-\d{2}-\d{2}/)) return new Date(v);
+        }
+        return null;
+      }
+
+      function userDate(v) {
+        var d = parseDate(v);
+        if (!d || isNaN(d.getTime())) return '';
+        if (d.getFullYear() < 1970) return '';
+        return Utilities.formatDate(d, 'Europe/Paris', 'dd/MM/yyyy');
+      }
+
+      // ── Commandes actives ──
       var sheetCmd = ss.getSheetByName('Commandes');
       if (sheetCmd && sheetCmd.getLastRow() > 1) {
         var cmdData = sheetCmd.getDataRange().getValues();
         var commandes = [];
-        
         for (var i = 1; i < cmdData.length; i++) {
           var row = cmdData[i];
           if (!row || row.length < 5) continue;
           
-          function fmtVal(v) {
-            if (v instanceof Date && !isNaN(v.getTime())) {
-              if (v.getFullYear() < 1970) {
-                return Utilities.formatDate(v, 'Europe/Paris', 'HH:mm');
-              }
-              return Utilities.formatDate(v, 'Europe/Paris', 'dd/MM/yyyy HH:mm');
-            }
-            var str = v !== null && v !== undefined ? String(v) : '';
-            if (str.indexOf('Dec 30 1899') !== -1) return ''; 
-            return str;
-          }
+          var dRetrait = parseDate(row[4]);
+          if (dRetrait && dRetrait < cutoff) continue;
 
-          function userDate(v) {
-             if (v instanceof Date && !isNaN(v.getTime())) {
-                if (v.getFullYear() < 1970) return '';
-                return Utilities.formatDate(v, 'Europe/Paris', 'dd/MM/yyyy');
-             }
-             if (typeof v === 'string' && v.match(/^\d{4}-\d{2}-\d{2}/)) {
-                var parts = v.split('-');
-                return parts[2] + '/' + parts[1] + '/' + parts[0];
-             }
-             var str = v !== null && v !== undefined ? String(v) : '';
-             if (str.indexOf('Dec 30 1899') !== -1) return '';
-             return str;
-          }
-
-          var status = fmtVal(row[3]);
-          
-          // Filtrer par date (30 jours max) pour les commandes aussi
-          var dateStr = String(row[4] || '');
-          var pickupTimestamp = null;
-          if (dateStr.includes('/')) {
-            var parts = dateStr.split('/');
-            var d = new Date(parts[2], parts[1]-1, parts[0]);
-            if (!isNaN(d.getTime()) && d < cutoff) continue;
-          }
-
-          var parsedItemsJson = row[15] || '[]';
           var parsedItems = [];
-          try {
-             parsedItems = JSON.parse(parsedItemsJson);
-          } catch(e) {
-             parsedItems = [];
-          }
+          try { parsedItems = JSON.parse(row[15] || '[]'); } catch(e) {}
 
           commandes.push({
             id: row[0],
             customerName: fmtVal(row[1]),
             customerPhone: fmtVal(row[2]),
-            status: status,
+            status: fmtVal(row[3]),
             pickupDate: userDate(row[4]),
             pickupTime: fmtVal(row[5]),
             items: fmtVal(row[6]),
@@ -326,7 +315,7 @@ function doGet(e) {
         result.commandes = [];
       }
 
-      // ── Devis actifs (pas converti, refusé, expiré) ──
+      // ── Devis actifs ──
       var sheetDev = ss.getSheetByName('Devis');
       if (sheetDev && sheetDev.getLastRow() > 1) {
         var devData = sheetDev.getDataRange().getValues();
@@ -334,8 +323,7 @@ function doGet(e) {
         var devis = [];
         for (var j = 1; j < devData.length; j++) {
           var drow = devData[j];
-          var dstatus = String(drow[11] || '');
-          if (skipStatuses.indexOf(dstatus) !== -1) continue;
+          if (skipStatuses.indexOf(String(drow[11] || '')) !== -1) continue;
           devis.push({
             id: drow[0], numero: drow[1], createdAt: drow[2],
             customerName: drow[3], customerPhone: drow[4], customerEmail: drow[5],
@@ -349,62 +337,39 @@ function doGet(e) {
         result.devis = [];
       }
 
-      // ── Catalogue (pour synchro des stocks modifiés dans Sheets) ──
+      // ── Catalogue ──
       var sheetCat = ss.getSheetByName('Catalogue');
       if (sheetCat && sheetCat.getLastRow() > 1) {
         var catData = sheetCat.getDataRange().getValues();
         var catalogue = [];
         for (var k = 1; k < catData.length; k++) {
           var crow = catData[k];
-          catalogue.push({
-            id: crow[0],
-            name: crow[1],
-            price: crow[2],
-            categoryName: crow[3],
-            stock: crow[4],
-            alertThreshold: crow[5],
-            description: crow[6]
-          });
+          catalogue.push({ id: crow[0], name: crow[1], price: crow[2], categoryName: crow[3], stock: crow[4], alertThreshold: crow[5], description: crow[6] });
         }
         result.catalogue = catalogue;
       } else {
         result.catalogue = [];
       }
 
-      // ── Ventes (30 derniers jours, regroupées par ID Vente) ──
+      // ── Ventes (30 derniers jours) ──
       var sheetVentes = ss.getSheetByName('Ventes');
       if (sheetVentes && sheetVentes.getLastRow() > 1) {
         var ventesData = sheetVentes.getDataRange().getValues();
         var ventesMap = {}; 
-        var cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - 30); // Réduit à 30 jours pour éviter les timeouts
-
         for (var v = 1; v < ventesData.length; v++) {
           var vrow = ventesData[v];
           if (!vrow || vrow.length < 8) continue;
-          
           var saleId = String(vrow[0] || '');
           if (!saleId) continue;
 
-          var dateStr = String(vrow[1] || '');
-          var heureStr = String(vrow[2] || '');
-          var dateParts = dateStr.split('/');
-          var timestamp = null;
-          if (dateParts.length === 3) {
-            var isoStr = dateParts[2] + '-' + dateParts[1] + '-' + dateParts[0] + 'T' + (heureStr || '12:00:00');
-            var d = new Date(isoStr);
-            if (!isNaN(d.getTime())) {
-              if (d >= cutoff) {
-                timestamp = d.toISOString();
-              } else {
-                continue; 
-              }
-            }
-          }
+          var dSale = parseDate(vrow[1]);
+          if (dSale && dSale < cutoff) continue;
 
+          if (!ventesMap[saleId]) {
+            ventesMap[saleId] = {
               id: saleId,
-              timestamp: timestamp || new Date().toISOString(),
-              total: 0, // Sera calculé par la somme de la colonne G
+              timestamp: dSale ? dSale.toISOString() : new Date().toISOString(),
+              total: 0,
               discount: parseFloat(vrow[8]) || 0,
               paymentMethod: String(vrow[9] || 'Espèces'),
               amountGiven: parseFloat(vrow[10]) || 0,
@@ -416,12 +381,11 @@ function doGet(e) {
 
           var artName = String(vrow[3] || '');
           var artQty  = parseInt(vrow[4]) || 1;
-          var artPrice = parseFloat(vrow[5]) || 0;
-          var subtotal = parseFloat(vrow[6]) || 0; // Colonne G (index 6) : Sous-total Article
+          var subtotal = parseFloat(vrow[6]) || 0;
           
-          ventesMap[saleId].total += subtotal; // Somme des sous-totaux pour le total vente
+          ventesMap[saleId].total += subtotal;
           if (artName && artName !== '(non détaillé)') {
-            ventesMap[saleId].items.push({ name: artName, quantity: artQty, price: artPrice });
+            ventesMap[saleId].items.push({ name: artName, quantity: artQty, price: parseFloat(vrow[5]) || 0 });
             ventesMap[saleId].itemsCount += artQty;
           }
         }
