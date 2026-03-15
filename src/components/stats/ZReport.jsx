@@ -38,6 +38,16 @@ export default function ZReport() {
 
     useEffect(() => { loadData(); }, []);
 
+    useEffect(() => {
+        const refresh = () => loadData();
+        window.addEventListener('saleAdded', refresh);
+        window.addEventListener('catalogUpdated', refresh);
+        return () => {
+            window.removeEventListener('saleAdded', refresh);
+            window.removeEventListener('catalogUpdated', refresh);
+        };
+    }, []);
+
     // Payment breakdown
     const paymentTotals = { especes: 0, cb: 0, cheque: 0 };
     sales.forEach(s => {

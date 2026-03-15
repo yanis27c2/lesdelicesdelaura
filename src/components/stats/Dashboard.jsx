@@ -246,6 +246,17 @@ export default function Dashboard() {
 
     useEffect(() => { loadData(); }, []);
 
+    // Listen for sync/update events to refresh data
+    useEffect(() => {
+        const refresh = () => loadData();
+        window.addEventListener('saleAdded', refresh);
+        window.addEventListener('catalogUpdated', refresh);
+        return () => {
+            window.removeEventListener('saleAdded', refresh);
+            window.removeEventListener('catalogUpdated', refresh);
+        };
+    }, []);
+
     const { from, to } = useMemo(() => getPeriodBounds(preset, customFrom, customTo), [preset, customFrom, customTo]);
     const prevBounds = useMemo(() => getPrevPeriodBounds(preset, customFrom, customTo), [preset, customFrom, customTo]);
 
