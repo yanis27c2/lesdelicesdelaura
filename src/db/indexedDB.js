@@ -218,40 +218,6 @@ export const saveSale = async (saleData, isImport = false) => {
                 }
             });
             resolve(saleId);
-        };
-        request.onerror = (event) => reject(event.target.error);
-    });
-};
-
-export const getUnsyncedSales = async () => {
-    await initDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction([STORE_SALES], 'readonly');
-        const store = transaction.objectStore(STORE_SALES);
-        const index = store.index('synced');
-        const request = index.getAll(IDBKeyRange.only(false));
-
-        request.onsuccess = (event) => resolve(event.target.result);
-        request.onerror = (event) => reject(event.target.error);
-    });
-};
-
-export const getAllSales = async () => {
-    await initDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction([STORE_SALES], 'readonly');
-        const store = transaction.objectStore(STORE_SALES);
-        const request = store.getAll();
-
-        request.onsuccess = (event) => resolve(event.target.result);
-        request.onerror = (event) => reject(event.target.error);
-    });
-}
-
-export const markSalesAsSynced = async (saleIds) => {
-    await initDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction([STORE_SALES], 'readwrite');
         const store = transaction.objectStore(STORE_SALES);
 
         transaction.oncomplete = () => resolve(true);
