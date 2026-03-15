@@ -21,6 +21,7 @@ function App() {
   const [cartItems, setCartItems] = useState([]);
   const [currentView, setCurrentView] = useState('pos'); // pos, admin, stats, zreport
   const [isReady, setIsReady] = useState(false);
+  const [renderError, setRenderError] = useState(null);
   const [syncToast, setSyncToast] = useState(null);
 
   useEffect(() => {
@@ -103,9 +104,20 @@ function App() {
     }
   };
 
+  if (renderError) {
+    return (
+      <div style={{ padding: 20, color: 'red', background: '#fff' }}>
+        <h2>Un erreur est survenue au démarrage.</h2>
+        <pre>{renderError}</pre>
+        <button onClick={() => window.location.reload()}>Recharger</button>
+      </div>
+    );
+  }
+
   if (!isReady) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Chargement de la base de données...</div>;
 
-  return (
+  try {
+    return (
     <div className="app-container">
       {/* INBOUND SYNC TOAST */}
       {syncToast && (
@@ -193,7 +205,20 @@ function App() {
         )}
       </div>
     </div>
-  );
+    );
+  } catch (e) {
+    console.error("Render crash:", e);
+    // Use a ref or a side effect to set the error to avoid infinite loop of renders if it happens during render
+    // But since this is a try/catch in the body, we can return a fallback directly.
+    return (
+      <div style={{ padding: 20, color: 'red', background: '#fff' }}>
+        <h2>Un erreur est survenue lors de l'affichage.</h2>
+        <pre>{e.message}</pre>
+        <pre>{e.stack}</pre>
+        <button onClick={() => window.location.reload()}>Recharger</button>
+      </div>
+    );
+  }
 }
 
 export default App;
