@@ -51,15 +51,32 @@ function doPost(e) {
       results.ventes = data.ventes.length + ' ventes ajoutées';
     }
 
-    // ---- 2. CATALOGUE ----
+    // ---- 2. CATALOGUE & ALERTES STOCK ----
     if (data.catalogue && data.catalogue.length > 0) {
+      // a. Catalogue complet
       var sheetCat = getOrCreateSheet(ss, 'Catalogue', [
         'ID', 'Nom', 'Prix (€)', 'Catégorie', 'Stock', 'Seuil Alerte', 'Description'
       ]);
-      var lastRow = sheetCat.getLastRow();
-      if (lastRow > 1) sheetCat.deleteRows(2, lastRow - 1);
+      var lastRowCat = sheetCat.getLastRow();
+      if (lastRowCat > 1) sheetCat.deleteRows(2, lastRowCat - 1);
+      
+      // b. Onglet dédié aux alertes (uniquement stock <= seuil)
+      var sheetAlerts = getOrCreateSheet(ss, 'Alertes Stock', [
+        'ID', 'Nom', 'Stock Actuel', 'Seuil Alerte', 'Catégorie', 'Description'
+      ]);
+      var lastRowAlerts = sheetAlerts.getLastRow();
+      if (lastRowAlerts > 1) sheetAlerts.deleteRows(2, lastRowAlerts - 1);
+
       data.catalogue.forEach(function(p) {
+        // Ajout au catalogue
         sheetCat.appendRow([p.id, p.name, p.price, p.categoryName || p.categoryId, p.stock || 0, p.alertThreshold || 0, p.description || '']);
+        
+        // Ajout aux alertes si besoin
+        var stock = parseInt(p.stock) || 0;
+        var threshold = parseInt(p.alertThreshold) || 0;
+        if (stock <= threshold) {
+          sheetAlerts.appendRow([p.id, p.name, stock, threshold, p.categoryName || p.categoryId, p.description || '']);
+        }
       });
       results.catalogue = data.catalogue.length + ' produits mis à jour';
     }
@@ -122,7 +139,7 @@ function doPost(e) {
     if (data.commandes && data.commandes.length > 0) {
       var sheetCmd = getOrCreateSheet(ss, 'Commandes', [
         'ID', 'Nom Client', 'Téléphone', 'Statut', 'Date Retrait', 'Heure', 
-        'Articles', 'Total (€)', 'Acompte (€)', 'Reste à Payer (€)', 'Notes', 
+        'Articles', 'Total (€)', 'Acompte (€)', 'Reste à Payer (€)', 'État Paiement', 'Notes', 
         'Créé le', 'Début Production', 'Type', 'Parsed'
       ]);
       data.commandes.forEach(function(c) {
@@ -130,6 +147,7 @@ function doPost(e) {
         var total = parseFloat(c.totalPrice) || 0;
         var deposit = parseFloat(c.deposit) || 0;
         var remaining = Math.max(0, total - deposit);
+        var paymentState = remaining <= 0 ? 'Payé' : (deposit > 0 ? 'Partiel' : 'Non payé');
         var row = [
           c.id, 
           c.customerName || '', 
@@ -141,6 +159,7 @@ function doPost(e) {
           total, 
           deposit,
           remaining,
+          paymentState,
           c.notes || '',
           createdAt,
           c.productionStartDate || '',
@@ -237,18 +256,17 @@ function doGet(e) {
         
         for (var i = 1; i < cmdData.length; i++) {
           var row = cmdData[i];
+          if (!row || row.length < 5) continue;
           
           function fmtVal(v) {
             if (v instanceof Date && !isNaN(v.getTime())) {
-              // Si c'est un objet Date (souvent fin 1899 pour les heures seules), on formate proprement
-              // Si l'année est < 1970, c'est probablement juste une heure
               if (v.getFullYear() < 1970) {
                 return Utilities.formatDate(v, 'Europe/Paris', 'HH:mm');
               }
               return Utilities.formatDate(v, 'Europe/Paris', 'dd/MM/yyyy HH:mm');
             }
             var str = v !== null && v !== undefined ? String(v) : '';
-            if (str.indexOf('Dec 30 1899') !== -1) return ''; // Nettoyage date nulle Excel/Google
+            if (str.indexOf('Dec 30 1899') !== -1) return ''; 
             return str;
           }
 
@@ -269,7 +287,7 @@ function doGet(e) {
           var status = fmtVal(row[3]);
           if (status === 'recupere' || status === 'collected') continue;
 
-          var parsedItemsJson = row[14] || '[]';
+          var parsedItemsJson = row[15] || '[]';
           var parsedItems = [];
           try {
              parsedItems = JSON.parse(parsedItemsJson);
@@ -287,10 +305,11 @@ function doGet(e) {
             items: fmtVal(row[6]),
             totalPrice: parseFloat(row[7]) || 0,
             deposit: parseFloat(row[8]) || 0,
-            notes: fmtVal(row[10]),
-            createdAt: fmtVal(row[11]),
-            productionStartDate: userDate(row[12]),
-            type: fmtVal(row[13]),
+            paymentStatus: fmtVal(row[10]),
+            notes: fmtVal(row[11]),
+            createdAt: fmtVal(row[12]),
+            productionStartDate: userDate(row[13]),
+            type: fmtVal(row[14]),
             parsedItems: parsedItems
           });
         }
@@ -344,37 +363,33 @@ function doGet(e) {
         result.catalogue = [];
       }
 
-      // ── Ventes (90 derniers jours, regroupées par ID Vente) ──
-      // Colonnes: 0=ID Vente, 1=Date (dd/MM/yyyy), 2=Heure (HH:mm:ss),
-      //           3=Article, 4=Quantité, 5=Prix Unitaire,
-      //           6=Sous-total Article, 7=Total Vente, 8=Remise,
-      //           9=Mode Paiement, 10=Montant Donné, 11=Rendu
+      // ── Ventes (30 derniers jours, regroupées par ID Vente) ──
       var sheetVentes = ss.getSheetByName('Ventes');
       if (sheetVentes && sheetVentes.getLastRow() > 1) {
         var ventesData = sheetVentes.getDataRange().getValues();
-        var ventesMap = {}; // grouper par ID Vente
+        var ventesMap = {}; 
         var cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - 90); // 90 derniers jours
+        cutoff.setDate(cutoff.getDate() - 30); // Réduit à 30 jours pour éviter les timeouts
 
         for (var v = 1; v < ventesData.length; v++) {
           var vrow = ventesData[v];
-          var saleId = String(vrow[0]);
+          if (!vrow || vrow.length < 8) continue;
+          
+          var saleId = String(vrow[0] || '');
           if (!saleId) continue;
 
-          // Parser la date "dd/MM/yyyy" + heure "HH:mm:ss"
-          var dateStr = String(vrow[1]);
-          var heureStr = String(vrow[2]);
+          var dateStr = String(vrow[1] || '');
+          var heureStr = String(vrow[2] || '');
           var dateParts = dateStr.split('/');
           var timestamp = null;
           if (dateParts.length === 3) {
-            // "dd/MM/yyyy" -> "yyyy-MM-dd"
             var isoStr = dateParts[2] + '-' + dateParts[1] + '-' + dateParts[0] + 'T' + (heureStr || '12:00:00');
             var d = new Date(isoStr);
             if (!isNaN(d.getTime())) {
               if (d >= cutoff) {
                 timestamp = d.toISOString();
               } else {
-                continue; // trop ancienne
+                continue; 
               }
             }
           }
@@ -393,7 +408,6 @@ function doGet(e) {
             };
           }
 
-          // Ajouter l'article à la vente
           var artName = String(vrow[3] || '');
           var artQty  = parseInt(vrow[4]) || 1;
           var artPrice = parseFloat(vrow[5]) || 0;
@@ -450,8 +464,17 @@ function getOrCreateSheet(ss, name, headers) {
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
-    sheet.appendRow(headers);
+  }
+  
+  // Vérifier si la feuille est vide ou si la première ligne (A1) est vide
+  if (sheet.getLastRow() === 0 || sheet.getRange(1, 1).getValue() === "") {
+    // Si la feuille contenait déjà des données mais pas d'en-tête, on insère une ligne
+    if (sheet.getLastRow() > 0) {
+      sheet.insertRowBefore(1);
+    }
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#f9a8d4');
+    try { sheet.setFrozenRows(1); } catch(e) {}
   }
   return sheet;
 }

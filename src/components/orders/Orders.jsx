@@ -488,6 +488,20 @@ function OrderCard({ order, onStatusChange, onDelete, onSendToPlanning }) {
                     <div className="order-status-badge" style={{ backgroundColor: color + '22', color, border: `1px solid ${color}` }}>
                         {STATUS_LABELS[status]}
                     </div>
+                    {/* Payment Status Badge */}
+                    {(() => {
+                        const remaining = (order.totalPrice || 0) - (order.deposit || 0);
+                        const isPaid = remaining <= 0;
+                        const isPartial = !isPaid && (order.deposit || 0) > 0;
+                        
+                        if (isPaid) {
+                            return <div className="order-payment-badge paid">Payé</div>;
+                        } else if (isPartial) {
+                            return <div className="order-payment-badge partial">Partiel ({remaining.toFixed(2)}€)</div>;
+                        } else {
+                            return <div className="order-payment-badge ghost">Non payé</div>;
+                        }
+                    })()}
                     <button className="btn-icon delete" onClick={() => onDelete(order.id)}><Trash2 size={16} /></button>
                 </div>
             </div>

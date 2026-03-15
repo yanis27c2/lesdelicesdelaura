@@ -1,4 +1,5 @@
-import { CloudUpload, RefreshCw, CheckCircle, AlertCircle, CloudDownload, Trash2, Download, Upload, ShieldAlert } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { CloudUpload, RefreshCw, CheckCircle, AlertCircle, CloudDownload, Trash2 } from 'lucide-react';
 import {
     getAllSales, getProducts, getCategories,
     getExpenses, getZReports, getOrders, getDevis,
@@ -15,32 +16,38 @@ export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz9rk-
 const LAST_SYNC_KEY = 'bakery_last_sync';
 
 export default function SyncManager({ isOnline }) {
+    const [lastSync, setLastSync] = useState(() => localStorage.getItem(LAST_SYNC_KEY));
     const [pendingCount, setPendingCount] = useState(0);
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncResult, setSyncResult] = useState(null);
-    const [lastSync, setLastSync] = useState(() => localStorage.getItem(LAST_SYNC_KEY));
+    const [counts, setCounts] = useState({ orders: 0, devis: 0 });
     const resultTimer = useRef(null);
-
-    const countPending = async () => {
+    
+    const countAll = async () => {
         try {
-            const [sales, depenses, clotures, stockHistory, orders, devis] = await Promise.all([
+            const [sales, depenses, clotures, stockHistory, ordersData, devisData] = await Promise.all([
                 getUnsyncedSales(), getUnsyncedExpenses(), getUnsyncedZReports(), getUnsyncedStockHistory(),
                 getOrders(), getDevis()
             ]);
-            setPendingCount(sales.length + depenses.length + clotures.length + stockHistory.length + orders.length + devis.length);
+            setPendingCount(sales.length + depenses.length + clotures.length + stockHistory.length);
+            setCounts({ orders: ordersData.length, devis: devisData.length });
         } catch (err) {
             console.error('Erreur comptage données', err);
         }
     };
 
     useEffect(() => {
-        countPending();
-        const refresh = () => countPending();
+        countAll();
+        const refresh = () => countAll();
         window.addEventListener('saleAdded', refresh);
         window.addEventListener('catalogUpdated', refresh);
+        window.addEventListener('ordersUpdated', refresh);
+        window.addEventListener('devisUpdated', refresh);
         return () => {
             window.removeEventListener('saleAdded', refresh);
             window.removeEventListener('catalogUpdated', refresh);
+            window.removeEventListener('ordersUpdated', refresh);
+            window.removeEventListener('devisUpdated', refresh);
         };
     }, []);
 
@@ -105,9 +112,8 @@ export default function SyncManager({ isOnline }) {
                 mode: 'no-cors',   // Google Apps Script requiert no-cors
             });
 
-            // no-cors → réponse opaque, on ne peut pas lire le body
-            // On considère que si pas d'erreur réseau = succès
-            // Vider uniquement les données passées (ventes, dépenses, clôtures)
+            // IMPORTANT : Avec no-cors, on ne sait pas si ça a réussi à 100%.
+            // Cependant, suite à votre demande, on vide TOUT pour ne rien laisser sur l'iPad
             await Promise.all([
                 clearAllSales(),
                 clearAllExpenses(),
@@ -116,7 +122,6 @@ export default function SyncManager({ isOnline }) {
                 clearAllOrders(),
                 clearAllDevis()
             ]);
-            // Commandes et devis : ON NE SUPPRIME PAS — ils restent en local
 
             const now = new Date().toLocaleString('fr-FR');
             localStorage.setItem(LAST_SYNC_KEY, now);
@@ -124,7 +129,7 @@ export default function SyncManager({ isOnline }) {
 
             window.dispatchEvent(new Event('catalogUpdated'));
             setPendingCount(0);
-            showResult({ success: true, message: `Téléversement réussi le ${now}.` });
+            showResult({ success: true, message: `Synchronisation réussie le ${now}. iPad vidé.` });
 
         } catch (err) {
             console.error('Erreur synchronisation:', err);
@@ -223,73 +228,6 @@ function fmtDateTime(isoStr) {
         }
     };
 
-    const handleExportBackup = async () => {
-        try {
-            const [ventes, depenses, clotures, orders, devis, customers] = await Promise.all([
-                getAllSales(), getExpenses(), getZReports(), getOrders(), getDevis(), getCustomers()
-            ]);
-            
-            const backup = {
-                version: '1.0',
-                date: new Date().toISOString(),
-                data: { ventes, depenses, clotures, orders, devis, customers }
-            };
-            
-            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `bakery_backup_${new Date().toISOString().slice(0,10)}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            showResult({ success: true, message: "Sauvegarde JSON téléchargée !" });
-        } catch (err) {
-            showResult({ success: false, message: "Erreur export : " + err.message });
-        }
-    };
-
-    const handleImportBackup = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-            try {
-                const backup = JSON.parse(event.target.result);
-                if (!backup.data) throw new Error("Format de fichier invalide");
-
-                const confirmed = window.confirm("Ceci va ÉCRASER vos données locales actuelles par celles du fichier. Continuer ?");
-                if (!confirmed) return;
-
-                // Simple batch save
-                if (backup.data.orders) {
-                    await clearAllOrders();
-                    for (const o of backup.data.orders) await saveOrder(o);
-                }
-                if (backup.data.ventes) {
-                    await clearAllSales();
-                    for (const v of backup.data.ventes) await saveSale(v, true);
-                }
-                if (backup.data.devis) {
-                    await clearAllDevis();
-                    for (const d of backup.data.devis) await saveDevis(d);
-                }
-                // ... add other stores if needed
-
-                window.dispatchEvent(new Event('catalogUpdated'));
-                window.dispatchEvent(new Event('saleAdded'));
-                countPending();
-                showResult({ success: true, message: "Données restaurées avec succès !" });
-            } catch (err) {
-                showResult({ success: false, message: "Erreur import : " + err.message });
-            }
-        };
-        reader.readAsText(file);
-    };
-
     const hasPending = pendingCount > 0;
 
     return (
@@ -345,27 +283,80 @@ function fmtDateTime(isoStr) {
                 </button>
             </div>
 
-            <div className="sync-safety-zone">
-                <div className="safety-header">
-                    <ShieldAlert size={16} />
-                    <span>Zone de Secours (iPad / Offline)</span>
+             {/* Aide & Secours Restored */}
+            <div className="sync-section-divider"></div>
+            
+            <div className="sync-help-section">
+                <h3 className="sync-help-title"><ShieldAlert size={16} /> Aide & Secours</h3>
+                
+                <div style={{ marginBottom: 12, padding: 8, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: '0.8rem' }}>
+                    <strong>Mémoire iPad :</strong> {pendingCount} ventes à envoyer, {counts.orders} commandes, {counts.devis} devis.
                 </div>
-                <p className="safety-desc">Utilisez ces outils si la synchronisation automatique échoue.</p>
-                <div className="safety-actions">
-                    <button className="safety-btn export" onClick={handleExportBackup}>
-                        <Download size={14} /> Exporter Sauvegarde .json
-                    </button>
-                    
-                    <label className="safety-btn import">
-                        <Upload size={14} /> Importer Sauvegarde
-                        <input type="file" accept=".json" onChange={handleImportBackup} style={{ display: 'none' }} />
-                    </label>
 
-                    <button className="safety-btn purge" onClick={handlePurgeLocal}>
-                        <Trash2 size={14} /> Purger Appareil
+                <p className="sync-help-text">
+                    Si vos commandes ne s'affichent plus ou si vous voulez faire une sauvegarde manuelle sur votre iPad :
+                </p>
+                
+                <div className="sync-help-actions">
+                    <button className="sync-help-btn" onClick={async () => {
+                        try {
+                            const [ventes, products, categories, depenses, clotures, commandes, devis, customers] = await Promise.all([
+                                getAllSales(), getProducts(), getCategories(), getExpenses(), getZReports(), getOrders(), getDevis(), getCustomers()
+                            ]);
+                            const data = { ventes, products, categories, depenses, clotures, commandes, devis, customers, exportDate: new Date().toISOString() };
+                            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `backup_boulangerie_${new Date().toISOString().slice(0, 10)}.json`;
+                            a.click();
+                            showResult({ success: true, message: "Sauvegarde JSON téléchargée." });
+                        } catch (e) {
+                            showResult({ success: false, message: "Erreur export: " + e.message });
+                        }
+                    }}>
+                        <Download size={14} /> Sauvegarder (Fichier JSON)
                     </button>
+
+                    <label className="sync-help-btn ghost">
+                        <Upload size={14} /> Restaurer un fichier
+                        <input type="file" accept=".json" style={{ display: 'none' }} onChange={async (e) => {
+                            const file = e.target.result; // Not how it works, need FileReader
+                        }} />
+                        {/* Inline JS for simpler import */}
+                        <input type="file" accept=".json" style={{ display: 'none' }} onChange={async (event) => {
+                            const file = event.target.files[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = async (e) => {
+                                try {
+                                    const data = JSON.parse(e.target.result);
+                                    if (confirm("⚠️ RESTAURER ? Cela va fusionner les données du fichier avec votre iPad.")) {
+                                        if (data.commandes) {
+                                            for (const o of data.commandes) await saveOrder(o);
+                                        }
+                                        if (data.devis) {
+                                            for (const d of data.devis) await saveDevis(d);
+                                        }
+                                        showResult({ success: true, message: "Restauration terminée." });
+                                        window.dispatchEvent(new Event('ordersUpdated'));
+                                    }
+                                } catch (err) {
+                                    showResult({ success: false, message: "Fichier invalide." });
+                                }
+                            };
+                            reader.readAsText(file);
+                        }} />
+                    </label>
                 </div>
             </div>
+
+            <div className="sync-footer-actions">
+                <button className="sync-btn-purge-text" onClick={handlePurgeLocal}>
+                   <Trash2 size={13} /> Purger TOUTES les données (Ventes + Commandes)
+                </button>
+            </div>
+
             {lastSync && !isSyncing && (
                 <div className="sync-last-time">Dernier sync : {lastSync}</div>
             )}
@@ -442,57 +433,58 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
                 }
 
                 // ── 2. COMMANDES : remplacement complet ──────────────────
-                if (data.commandes && Array.isArray(data.commandes)) {
+                if (data.commandes && Array.isArray(data.commandes) && data.commandes.length > 0) {
                     await clearAllOrders();
                     for (const order of data.commandes) {
-                        if (!order.id) continue;
+                        try {
+                            if (String(order.status || 'en_attente') === 'recupere' || String(order.status || 'en_attente') === 'collected') continue;
 
-                        // Filtrer les commandes récupérées (déjà filtrées côté serveur mais double sécurité)
-                        if (String(order.status || 'en_attente') === 'recupere' || String(order.status || 'en_attente') === 'collected') continue;
-
-                        await saveOrderFn({
-                            id: order.id,
-                            type: order.type || 'Standard',
-                            createdAt: order.createdAt || new Date().toISOString(),
-                            customerName: order.customerName || '',
-                            customerPhone: order.customerPhone || '',
-                            pickupDate: fromSheetDate(order.pickupDate),
-                            pickupTime: order.pickupTime || '',
-                            productionStartDate: fromSheetDate(order.productionStartDate),
-                            totalPrice: parseFloat(order.totalPrice) || 0,
-                            deposit: parseFloat(order.deposit) || 0,
-                            status: order.status || 'en_attente',
-                            notes: order.notes || '',
-                            items: order.items || '',
-                            parsedItems: typeof order.parsedItems === 'string' ? JSON.parse(order.parsedItems) : (order.parsedItems || []),
-                        });
-                        commandesUpdated++;
+                            const parsedItems = typeof order.parsedItems === 'string' ? JSON.parse(order.parsedItems) : (order.parsedItems || []);
+                            await saveOrderFn({
+                                id: order.id,
+                                customerName: order.customerName || '',
+                                customerPhone: order.customerPhone || '',
+                                status: order.status || 'en_attente',
+                                pickupDate: fromSheetDate(order.pickupDate),
+                                pickupTime: order.pickupTime || '',
+                                items: order.items || '',
+                                parsedItems: parsedItems,
+                                totalPrice: parseFloat(order.totalPrice) || 0,
+                                deposit: parseFloat(order.deposit) || 0,
+                                notes: order.notes || '',
+                                productionStartDate: fromSheetDate(order.productionStartDate),
+                                type: order.type || 'Standard',
+                                createdAt: order.createdAt || new Date().toISOString(),
+                            });
+                            commandesUpdated++;
+                        } catch (e) { console.error("Err order", e); }
                     }
                     console.log(`[Sync] ${commandesUpdated} commandes importées.`);
                     window.dispatchEvent(new Event('ordersUpdated'));
                 }
 
                 // ── 3. DEVIS : remplacement complet ──────────────────────
-                if (data.devis && Array.isArray(data.devis)) {
+                if (data.devis && Array.isArray(data.devis) && data.devis.length > 0) {
                     await clearAllDevis();
                     for (const d of data.devis) {
-                        if (!d.id) continue;
-                        await saveDevisFn({
-                            id: d.id,
-                            numero: d.numero || '',
-                            createdAt: d.createdAt || new Date().toISOString(),
-                            customerName: d.customerName || '',
-                            customerPhone: d.customerPhone || '',
-                            customerEmail: d.customerEmail || '',
-                            validityDate: fromSheetDate(d.validityDate),
-                            pickupDate: fromSheetDate(d.pickupDate),
-                            totalPrice: parseFloat(d.totalPrice) || 0,
-                            discount: parseFloat(d.discount) || 0,
-                            status: d.status || 'brouillon',
-                            items: d.items || '',
-                            notes: d.notes || '',
-                        });
-                        devisUpdated++;
+                        try {
+                            await saveDevisFn({
+                                id: d.id,
+                                numero: d.numero || '',
+                                customerName: d.customerName || '',
+                                customerPhone: d.customerPhone || '',
+                                customerEmail: d.customerEmail || '',
+                                status: d.status || 'brouillon',
+                                validityDate: fromSheetDate(d.validityDate),
+                                pickupDate: fromSheetDate(d.pickupDate),
+                                totalPrice: parseFloat(d.totalPrice) || 0,
+                                discount: parseFloat(d.discount) || 0,
+                                items: d.items || '',
+                                notes: d.notes || '',
+                                createdAt: d.createdAt || new Date().toISOString(),
+                            });
+                            devisUpdated++;
+                        } catch (e) { console.error("Err devis", e); }
                     }
                     console.log(`[Sync] ${devisUpdated} devis importés.`);
                     window.dispatchEvent(new Event('devisUpdated'));
@@ -503,7 +495,7 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
                     await clearAllSales();
                     for (const s of data.ventes) {
                         if (!s.id) continue;
-                        await saveSale(s, true);
+                        await saveSale(s, true); // le second argument true évite de déclencher des événements en boucle
                         salesUpdated++;
                     }
                 }

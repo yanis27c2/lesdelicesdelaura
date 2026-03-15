@@ -573,6 +573,33 @@
     font-weight: 700;
 }
 
+.order-payment-badge {
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.order-payment-badge.paid {
+    background-color: #f0fdf4;
+    color: #16a34a;
+    border: 1px solid #bbf7d0;
+}
+
+.order-payment-badge.partial {
+    background-color: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+
+.order-payment-badge.ghost {
+    background-color: #f8fafc;
+    color: #94a3b8;
+    border: 1px solid #e2e8f0;
+}
+
 .order-items {
     font-size: 0.9rem;
     color: var(--color-text);
