@@ -151,7 +151,7 @@ export const clearStockHistory = async () => {
 
 // --- SALES ---
 
-export const saveSale = async (saleData) => {
+export const saveSale = async (saleData, isImport = false) => {
     await initDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([STORE_SALES, STORE_PRODUCTS, STORE_STOCK_HISTORY], 'readwrite');
@@ -161,14 +161,20 @@ export const saveSale = async (saleData) => {
 
         const sale = {
             ...saleData,
-            timestamp: new Date().toISOString(),
-            synced: false,
+            timestamp: isImport ? (saleData.timestamp || new Date().toISOString()) : new Date().toISOString(),
+            synced: isImport ? true : false,
         };
 
         const request = salesStore.add(sale);
 
         request.onsuccess = (event) => {
             const saleId = event.target.result;
+
+            // Skip stock update and history if it's an import from cloud
+            if (isImport) {
+                return resolve(saleId);
+            }
+
             // Update stock for each item sold
             saleData.items.forEach(item => {
                 if (item.stock !== undefined && item.stock !== null) {

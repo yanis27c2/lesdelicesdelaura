@@ -314,50 +314,23 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
                     for (const order of data.commandes) {
                         if (!order.id) continue;
 
-                        // Le script GAS (version deployée) retourne les champs avec un décalage dû à
-                        // l'ancienne version en cache. Mapping réel basé sur la réponse brute observée :
-                        // - id         → id ✓
-                        // - createdAt  → Type (ex: "Standard")
-                        // - customerName → Date Création (timestamp ISO ou string)
-                        // - customerPhone → Nom Client ✓ (la vraie valeur)
-                        // - pickupDate  → Téléphone
-                        // - pickupTime  → Date Retrait (timestamp ISO)
-                        // - productionStartDate → Heure Retrait
-                        // - totalPrice → Début Production (vide la plupart du temps)
-                        // - deposit    → Total (€) ← le vrai montant total
-                        // - status     → Acompte (€)
-                        // - notes      → Statut ← le vrai statut
-                        // - items      → Notes/Détail Articles
-
-                        // Extraire la date de retrait : pickupTime est un ISO string date
-                        let pickupDateStr = '';
-                        if (order.pickupTime && String(order.pickupTime).length > 0) {
-                            try {
-                                const d = new Date(order.pickupTime);
-                                if (!isNaN(d.getTime())) {
-                                    pickupDateStr = d.toISOString().slice(0, 10); // YYYY-MM-DD
-                                }
-                            } catch (e) { }
-                        }
-
-                        const realStatus = String(order.notes || 'en_attente');
                         // Filtrer les commandes récupérées (déjà filtrées côté serveur mais double sécurité)
-                        if (realStatus === 'recupere' || realStatus === 'collected') continue;
+                        if (String(order.status || 'en_attente') === 'recupere' || String(order.status || 'en_attente') === 'collected') continue;
 
                         await saveOrderFn({
                             id: order.id,
-                            type: String(order.createdAt || 'Standard'),
-                            createdAt: new Date().toISOString(),
-                            customerName: String(order.customerPhone || ''),
-                            customerPhone: String(order.pickupDate || ''),
-                            pickupDate: pickupDateStr,
-                            pickupTime: '',
-                            productionStartDate: '',
-                            totalPrice: parseFloat(order.deposit) || 0,
-                            deposit: parseFloat(order.status) || 0,
-                            status: realStatus || 'en_attente',
-                            notes: String(order.items || ''),
-                            items: String(order.items || ''),
+                            type: order.type || 'Standard',
+                            createdAt: order.createdAt || new Date().toISOString(),
+                            customerName: order.customerName || '',
+                            customerPhone: order.customerPhone || '',
+                            pickupDate: order.pickupDate ? String(order.pickupDate).slice(0, 10) : '',
+                            pickupTime: order.pickupTime || '',
+                            productionStartDate: order.productionStartDate || '',
+                            totalPrice: parseFloat(order.totalPrice) || 0,
+                            deposit: parseFloat(order.deposit) || 0,
+                            status: order.status || 'en_attente',
+                            notes: order.notes || '',
+                            items: order.items || '',
                         });
                         commandesUpdated++;
                     }
@@ -392,7 +365,7 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
                     await clearAllSales();
                     for (const s of data.ventes) {
                         if (!s.id) continue;
-                        await saveSale(s);
+                        await saveSale(s, true);
                         salesUpdated++;
                     }
                 }

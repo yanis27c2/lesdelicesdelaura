@@ -103,7 +103,7 @@ function buildDailyData(directEntries, orderEntries, from, to, source) {
     const cur = new Date(from);
     while (cur <= to) {
         const key = toKey(cur);
-        map[key] = { date: fmt(cur), fullDate: fmtFull(new Date(cur)), direct: 0, commande: 0, total: 0, ventes: 0, ventes_direct: 0, ventes_commande: 0 };
+        map[key] = { key, date: fmt(cur), fullDate: fmtFull(new Date(cur)), direct: 0, commande: 0, total: 0, ventes: 0, ventes_direct: 0, ventes_commande: 0 };
         cur.setDate(cur.getDate() + 1);
     }
 
@@ -222,6 +222,7 @@ export default function Dashboard() {
     const [topMode, setTopMode] = useState('qty');
     const [chartMode, setChartMode] = useState('revenue'); // 'revenue' | 'qty'
     const [chartMetric, setChartMetric] = useState('total'); // 'total' | 'direct' | 'commande'
+    const [selectedDate, setSelectedDate] = useState(null); // String yyyy-mm-dd
 
     const loadData = async () => {
         setLoading(true);
@@ -246,6 +247,11 @@ export default function Dashboard() {
 
     useEffect(() => { loadData(); }, []);
 
+    // Reset selectedDate when preset changes
+    useEffect(() => {
+        setSelectedDate(null);
+    }, [preset]);
+
     // Listen for sync/update events to refresh data
     useEffect(() => {
         const refresh = () => loadData();
@@ -267,12 +273,26 @@ export default function Dashboard() {
     const filtDirect = useMemo(() => filterByDate(directSales, from, to), [directSales, from, to]);
     const filtOrders = useMemo(() => filterByDate(orderRevenue, from, to), [orderRevenue, from, to]);
 
+    // Filter for specific date if selected
+    const drillDownDirect = useMemo(() => {
+        if (!selectedDate) return filtDirect;
+        return filtDirect.filter(s => toKey(s.timestamp) === selectedDate);
+    }, [filtDirect, selectedDate]);
+
+    const drillDownOrders = useMemo(() => {
+        if (!selectedDate) return filtOrders;
+        return filtOrders.filter(o => toKey(o.timestamp) === selectedDate);
+    }, [filtOrders, selectedDate]);
+
     // Entrées actives selon le filtre source
     const activeEntries = useMemo(() => {
-        if (source === 'direct') return filtDirect;
-        if (source === 'commande') return filtOrders;
-        return [...filtDirect, ...filtOrders];
-    }, [source, filtDirect, filtOrders]);
+        const d = selectedDate ? drillDownDirect : filtDirect;
+        const o = selectedDate ? drillDownOrders : filtOrders;
+
+        if (source === 'direct') return d;
+        if (source === 'commande') return o;
+        return [...d, ...o];
+    }, [source, filtDirect, filtOrders, drillDownDirect, drillDownOrders, selectedDate]);
 
     // Période précédente
     const prevDirect = useMemo(() => prevBounds ? filterByDate(directSales, prevBounds.from, prevBounds.to) : [], [directSales, prevBounds]);
@@ -284,12 +304,12 @@ export default function Dashboard() {
     }, [source, prevDirect, prevOrders]);
 
     const stats = useMemo(() => computeStats(activeEntries), [activeEntries]);
-    const prevStats = useMemo(() => prevBounds ? computeStats(prevActive) : null, [prevActive, prevBounds]);
+    const prevStats = useMemo(() => (prevBounds && !selectedDate) ? computeStats(prevActive) : null, [prevActive, prevBounds, selectedDate]);
 
-    const showDaily = preset !== 'today';
+    const showDaily = preset !== 'today' && !selectedDate;
     const dailyData = useMemo(() => buildDailyData(filtDirect, filtOrders, from, to, source), [filtDirect, filtOrders, from, to, source]);
-    const hourlyData = useMemo(() => buildHourlyData(filtDirect, filtOrders, source), [filtDirect, filtOrders, source]);
-    const topProducts = useMemo(() => buildTopProducts(filtDirect, filtOrders, source), [filtDirect, filtOrders, source]);
+    const hourlyData = useMemo(() => buildHourlyData(drillDownDirect, drillDownOrders, source), [drillDownDirect, drillDownOrders, source]);
+    const topProducts = useMemo(() => buildTopProducts(drillDownDirect, drillDownOrders, source), [drillDownDirect, drillDownOrders, source]);
     const lowStock = useMemo(() => products.filter(p => p.alertThreshold > 0 && p.stock <= p.alertThreshold).sort((a, b) => a.stock - b.stock), [products]);
 
     const PRESETS = [
@@ -382,7 +402,22 @@ export default function Dashboard() {
                 {/* Trend Chart */}
                 <div className="chart-card">
                     <div className="chart-card-header">
-                        <h3><Activity size={15} /> {showDaily ? 'Évolution par jour' : 'Ventes par heure'}</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            {selectedDate && (
+                                <button
+                                    className="btn-secondary"
+                                    onClick={() => setSelectedDate(null)}
+                                    title="Retour à la vue globale"
+                                    style={{ padding: '4px 8px', borderRadius: '8px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 4 }}
+                                >
+                                    <ArrowUpRight size={14} style={{ transform: 'rotate(-135deg)' }} /> Retour
+                                </button>
+                            )}
+                            <h3>
+                                <Activity size={15} />{' '}
+                                {showDaily ? 'Évolution par jour' : `Ventes par heure${selectedDate ? ` (${fmt(new Date(selectedDate))})` : ''}`}
+                            </h3>
+                        </div>
                         <div className="chart-toggles-row">
                             <div className="chart-type-toggle">
                                 <button className={chartMode === 'revenue' ? 'active' : ''} onClick={() => setChartMode('revenue')}>CA (€)</button>
@@ -472,6 +507,7 @@ export default function Dashboard() {
                 <div className="chart-card" style={{ marginTop: 20 }}>
                     <div className="chart-card-header">
                         <h3><BarChart3 size={15} /> Détail par jour</h3>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>💡 Cliquez sur une ligne pour voir le détail par heure</span>
                     </div>
                     <div className="day-table">
                         <div className="day-table-head">
@@ -482,7 +518,18 @@ export default function Dashboard() {
                             <span>Total</span>
                         </div>
                         {[...dailyData].reverse().filter(d => d.total > 0).map(d => (
-                            <div key={d.date} className="day-table-row">
+                            <div
+                                key={d.date}
+                                className={`day-table-row ${selectedDate === d.key ? 'active' : ''}`}
+                                onClick={() => {
+                                    // Find the yyyy-mm-dd format from d.fullDate or recompute
+                                    // Since dailyData carries 'date' as dd/MM, we might need to store the raw key
+                                    // Let's assume buildingDailyData adds the key.
+                                    // I'll update buildDailyData to include the 'key' (yyyy-mm-dd)
+                                    if (d.key) setSelectedDate(d.key);
+                                }}
+                                style={{ cursor: 'pointer' }}
+                            >
                                 <span>{d.fullDate}</span>
                                 <span>{d.ventes}</span>
                                 {source !== 'commande' && <span style={{ color: SOURCE_COLORS.direct, fontWeight: 600 }}>{d.direct > 0 ? `${d.direct.toFixed(2)} €` : '—'}</span>}

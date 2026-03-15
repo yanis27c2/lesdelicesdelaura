@@ -427,11 +427,20 @@
     padding: 10px 12px;
     border-radius: 8px;
     border: 1px solid var(--color-border);
-    transition: background 0.1s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
 }
 
 .day-table-row:hover {
     background: var(--color-surface-alt, #f9fafb);
+    border-color: var(--color-primary);
+    transform: translateX(4px);
+}
+
+.day-table-row.active {
+    background: #fdf2f8;
+    border-color: #f472b6;
+    box-shadow: 0 0 0 1px #f472b6 inset;
 }
 
 .day-ca {
