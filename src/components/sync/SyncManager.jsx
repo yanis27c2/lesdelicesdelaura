@@ -311,15 +311,19 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
             resolve({ success: false, message: 'Délai dépassé (45s). Vérifiez votre connexion ou les réglages du script.' });
         }, 45000);
 
-        window[callbackName] = async function (data) {
+        window[callbackName] = function (data) {
             clearTimeout(timeout);
             cleanup();
-            if (!data || data.status !== 'ok') {
-                console.warn('Sync cloud entrante retour incorrect:', data);
-                return resolve({ success: false, message: data ? data.message : 'Pas de réponse valide' });
-            }
-
-            try {
+            
+            // Wrap in async execution
+            (async () => {
+                if (!data || data.status !== 'ok') {
+                    console.warn('Sync cloud entrante retour incorrect:', data);
+                    return resolve({ success: false, message: data ? data.message : 'Pas de réponse valide' });
+                }
+                
+                try {
+                    // Rest of the logic...
                 let productsUpdated = 0;
                 let commandesUpdated = 0;
                 let devisUpdated = 0;
@@ -447,9 +451,10 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
                 });
             } catch (err) {
                 console.warn('Erreur durant la fusion locale:', err);
-                resolve({ success: false, message: err.message });
+                resolve({ success: false, message: 'Erreur traitement données: ' + err.message });
             }
-        };
+        })();
+    };
 
         const script = document.createElement('script');
         script.src = `${GOOGLE_SCRIPT_URL}?action=getData&callback=${callbackName}`;
