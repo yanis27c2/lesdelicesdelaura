@@ -78,7 +78,23 @@ export default function SyncManager({ isOnline }) {
             categories.forEach(c => { catMap[c.id] = c.name; });
             const catalogue = products.map(p => ({ ...p, categoryName: catMap[p.categoryId] || p.categoryId }));
 
-            const payload = { ventes, catalogue, depenses, clotures, commandes, devis, stock_history, customers };
+            const payload = {
+                ventes,
+                catalogue,
+                depenses,
+                clotures,
+                commandes: commandes.map(o => ({
+                    ...o,
+                    pickupDate: toSheetDate(o.pickupDate),
+                    productionStartDate: toSheetDate(o.productionStartDate)
+                })),
+                devis: devis.map(d => ({
+                    ...d,
+                    validityDate: toSheetDate(d.validityDate)
+                })),
+                stock_history,
+                customers
+            };
 
             // fetch() au lieu de sendBeacon → on a la réponse du serveur
             const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -115,6 +131,24 @@ export default function SyncManager({ isOnline }) {
         }
     };
 
+    // Helpers for date standardization
+function fromSheetDate(str) {
+    if (!str) return '';
+    if (str.match(/^\d{2}\/\d{2}\/\d{4}/)) {
+        const [d, m, y] = str.split('/');
+        return `${y}-${m}-${d}`;
+    }
+    return str.slice(0, 10); // Fallback for YYYY-MM-DD
+}
+
+function toSheetDate(str) {
+    if (!str) return '';
+    if (str.match(/^\d{4}-\d{2}-\d{2}/)) {
+        const [y, m, d] = str.split('-');
+        return `${d}/${m}/${y}`;
+    }
+    return str;
+}
     const handlePurgeLocal = async () => {
         const confirmed = window.confirm(
             "⚠️ ATTENTION : Purger les données locales ?\n\n" +
@@ -325,9 +359,9 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
                             createdAt: order.createdAt || new Date().toISOString(),
                             customerName: order.customerName || '',
                             customerPhone: order.customerPhone || '',
-                            pickupDate: order.pickupDate ? String(order.pickupDate).slice(0, 10) : '',
+                            pickupDate: fromSheetDate(order.pickupDate),
                             pickupTime: order.pickupTime || '',
-                            productionStartDate: order.productionStartDate ? String(order.productionStartDate).slice(0, 10) : '',
+                            productionStartDate: fromSheetDate(order.productionStartDate),
                             totalPrice: parseFloat(order.totalPrice) || 0,
                             deposit: parseFloat(order.deposit) || 0,
                             status: order.status || 'en_attente',

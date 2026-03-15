@@ -413,7 +413,7 @@ function DevisCard({ devis, onStatusChange, onDelete, onConvertToOrder, onEdit }
             <div className="order-footer" style={{ marginBottom: 12 }}>
                 <div className="order-meta">
                     <Clock size={14} />
-                    <span>Expire le : <strong>{new Date(devis.validityDate).toLocaleDateString('fr-FR')}</strong></span>
+                    <span>Expire le : <strong>{devis.validityDate ? new Date(devis.validityDate).toLocaleDateString('fr-FR') : 'Non définie'}</strong></span>
                 </div>
             </div>
 

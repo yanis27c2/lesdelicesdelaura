@@ -239,11 +239,16 @@ function doGet(e) {
             return v !== null && v !== undefined ? String(v) : '';
           }
 
-          function isoDate(v) {
+          function userDate(v) {
              if (v instanceof Date && !isNaN(v.getTime())) {
-                return Utilities.formatDate(v, 'Europe/Paris', 'yyyy-MM-dd');
+                return Utilities.formatDate(v, 'Europe/Paris', 'dd/MM/yyyy');
              }
-             if (typeof v === 'string' && v.match(/^\d{4}-\d{2}-\d{2}/)) return v.slice(0,10);
+             if (typeof v === 'string' && v.match(/^\d{4}-\d{2}-\d{2}/)) {
+                // Si c'est du YYYY-MM-DD, on le laisse tel quel (deja traite en amont ou via input)
+                // Mais pour le retour GET, on prefere DD/MM/YYYY
+                var parts = v.split('-');
+                return parts[2] + '/' + parts[1] + '/' + parts[0];
+             }
              return v !== null && v !== undefined ? String(v) : '';
           }
 
@@ -264,9 +269,9 @@ function doGet(e) {
             createdAt: fmtVal(row[2]),
             customerName: fmtVal(row[3]),
             customerPhone: fmtVal(row[4]),
-            pickupDate: isoDate(row[5]),
+            pickupDate: userDate(row[5]),
             pickupTime: fmtVal(row[6]),
-            productionStartDate: isoDate(row[7]),
+            productionStartDate: userDate(row[7]),
             totalPrice: parseFloat(row[8]) || 0,
             deposit: parseFloat(row[9]) || 0,
             status: fmtVal(row[11]),

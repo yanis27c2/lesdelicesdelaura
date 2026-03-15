@@ -502,9 +502,9 @@ function OrderCard({ order, onStatusChange, onDelete, onSendToPlanning }) {
                     </span>
                 </div>
                 {order.productionStartDate && (
-                    <div className="order-meta" style={{ color: '#6366f1' }}>
-                        <Factory size={14} />
-                        <span>Production : <strong>{fmt(order.productionStartDate)}</strong></span>
+                    <div className="order-meta">
+                        <Clock size={14} />
+                        <span>Planifié pour : <strong>{order.productionStartDate ? new Date(order.productionStartDate).toLocaleDateString('fr-FR') : 'Non planifié'}</strong></span>
                     </div>
                 )}
                 {order.deposit > 0 && (

@@ -25,22 +25,32 @@ const STATUS_COLORS = {
 const DAYS_FR = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'];
 const MONTHS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
+function parseAnyDate(str) {
+    if (!str) return null;
+    const s = String(str);
+    // DD/MM/YYYY
+    if (s.match(/^\d{2}\/\d{2}\/\d{4}/)) {
+        const [d, m, y] = s.split('/');
+        return new Date(`${y}-${m}-${d}T12:00:00`);
+    }
+    // YYYY-MM-DD
+    if (s.match(/^\d{4}-\d{2}-\d{2}/)) {
+        return new Date(s.slice(0, 10) + 'T12:00:00');
+    }
+    return new Date(s);
+}
+
 function fmt(dateStr, opts = {}) {
-    if (!dateStr) return null;
-    // Standardisation forcee car Sheets peut renvoyer des ISO strings avec l'heure
-    const baseDate = String(dateStr).slice(0, 10);
-    const d = new Date(baseDate + 'T12:00:00');
-    if (isNaN(d.getTime())) return null;
+    const d = parseAnyDate(dateStr);
+    if (!d || isNaN(d.getTime())) return null;
     return d.toLocaleDateString('fr-FR', {
         weekday: 'long', day: 'numeric', month: 'long', ...opts
     });
 }
 
 function daysFromNow(dateStr) {
-    if (!dateStr) return null;
-    const baseDate = String(dateStr).slice(0, 10);
-    const d = new Date(baseDate + 'T12:00:00');
-    if (isNaN(d.getTime())) return null;
+    const d = parseAnyDate(dateStr);
+    if (!d || isNaN(d.getTime())) return null;
     const todayAtNoon = new Date();
     todayAtNoon.setHours(12, 0, 0, 0);
     return Math.round((d - todayAtNoon) / (1000 * 60 * 60 * 24));
