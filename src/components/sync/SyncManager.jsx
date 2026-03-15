@@ -6,11 +6,12 @@ import {
     clearAllSales, clearAllExpenses, clearAllZReports,
     saveOrder, saveDevis, getUnsyncedStockHistory, clearStockHistory,
     saveProduct, deleteProduct, saveCategory, getCustomers,
-    clearCatalog, clearAllOrders, clearAllDevis, saveSale
+    clearCatalog, clearAllOrders, clearAllDevis, saveSale,
+    getUnsyncedSales, getUnsyncedExpenses, getUnsyncedZReports, clearAllCustomers
 } from '../../db/indexedDB';
 import './SyncManager.css';
 
-export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz9rk-6tmCsEN_QhbhBF25uRG5XKanS6vqcLBmcE1NVlEKSsEFCpVfDdY_3o6XmWrCK/exec';
+export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz9rk-6tmCsEN_QhbhBF25uRG5XKanS6vqcLBmc1NVlEKSsEFCpVfDdY_3o6XmWrCK/exec';
 
 const LAST_SYNC_KEY = 'bakery_last_sync';
 
@@ -24,7 +25,7 @@ export default function SyncManager({ isOnline }) {
     const countPending = async () => {
         try {
             const [sales, depenses, clotures, stockHistory] = await Promise.all([
-                getAllSales(), getExpenses(), getZReports(), getUnsyncedStockHistory()
+                getUnsyncedSales(), getUnsyncedExpenses(), getUnsyncedZReports(), getUnsyncedStockHistory()
             ]);
             // Commandes et devis ne sont PAS comptés comme "à supprimer" —
             setPendingCount(sales.length + depenses.length + clotures.length + stockHistory.length);
@@ -129,7 +130,8 @@ export default function SyncManager({ isOnline }) {
                 clearAllZReports(),
                 clearStockHistory(),
                 clearAllOrders(),
-                clearAllDevis()
+                clearAllDevis(),
+                clearAllCustomers()
             ]);
             // On garde le catalogue (produits) pour éviter un écran vide, 
             // l'utilisateur pourra faire "Importer" pour le mettre à jour.

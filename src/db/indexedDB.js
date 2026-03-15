@@ -58,12 +58,26 @@ export const initDB = () => {
             if (!database.objectStoreNames.contains(STORE_EXPENSES)) {
                 const expenseStore = database.createObjectStore(STORE_EXPENSES, { keyPath: 'id', autoIncrement: true });
                 expenseStore.createIndex('timestamp', 'timestamp', { unique: false });
+                expenseStore.createIndex('synced', 'synced', { unique: false });
+            } else {
+                const tx = event.target.transaction;
+                const expenseStore = tx.objectStore(STORE_EXPENSES);
+                if (!expenseStore.indexNames.contains('synced')) {
+                    expenseStore.createIndex('synced', 'synced', { unique: false });
+                }
             }
 
             // Z Reports store
             if (!database.objectStoreNames.contains(STORE_Z_REPORTS)) {
                 const zStore = database.createObjectStore(STORE_Z_REPORTS, { keyPath: 'id', autoIncrement: true });
                 zStore.createIndex('date', 'date', { unique: false });
+                zStore.createIndex('synced', 'synced', { unique: false });
+            } else {
+                const tx = event.target.transaction;
+                const zStore = tx.objectStore(STORE_Z_REPORTS);
+                if (!zStore.indexNames.contains('synced')) {
+                    zStore.createIndex('synced', 'synced', { unique: false });
+                }
             }
 
             // Customers store
