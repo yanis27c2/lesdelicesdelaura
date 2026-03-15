@@ -692,9 +692,13 @@ export default function Orders() {
         const handler = () => loadOrders();
         window.addEventListener('devisConverted', handler);
         window.addEventListener('catalogUpdated', handler);
+        window.addEventListener('ordersUpdated', handler);
+        window.addEventListener('planningUpdated', handler);
         return () => {
             window.removeEventListener('devisConverted', handler);
             window.removeEventListener('catalogUpdated', handler);
+            window.removeEventListener('ordersUpdated', handler);
+            window.removeEventListener('planningUpdated', handler);
         };
     }, []);
 

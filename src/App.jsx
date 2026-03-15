@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 import './AppNav.css';
-import { Store, Wifi, WifiOff, LayoutGrid, Package, BarChart3, Calculator, Users, ClipboardList, FileText, CalendarClock } from 'lucide-react';
+import { Store, Wifi, WifiOff, LayoutGrid, Package, BarChart3, Calculator, Users, ClipboardList, FileText, CalendarClock, History } from 'lucide-react';
 import ProductGrid from './components/pos/ProductGrid';
 import Cart from './components/pos/Cart';
 import SyncManager, { syncFromCloud } from './components/sync/SyncManager';
@@ -12,6 +12,7 @@ import Customers from './components/customers/Customers';
 import Orders from './components/orders/Orders';
 import Devis from './components/devis/Devis';
 import Production from './components/planning/Planning';
+import SalesHistory from './components/stats/SalesHistory';
 import { saveSale, saveOrder, saveDevis } from './db/indexedDB';
 import { seedDatabaseIfEmpty } from './db/initData';
 
@@ -161,6 +162,9 @@ function App() {
         <button className={`nav-item ${currentView === 'zreport' ? 'active' : ''}`} onClick={() => setCurrentView('zreport')}>
           <Calculator size={18} /> Clôture
         </button>
+        <button className={`nav-item ${currentView === 'history' ? 'active' : ''}`} onClick={() => setCurrentView('history')}>
+          <History size={18} /> Historique
+        </button>
       </nav>
 
       {/* Content + optional cart sidebar */}
@@ -174,6 +178,7 @@ function App() {
           {currentView === 'production' && <Production />}
           {currentView === 'devis' && <Devis />}
           {currentView === 'customers' && <Customers />}
+          {currentView === 'history' && <SalesHistory />}
         </div>
 
         {currentView === 'pos' && (

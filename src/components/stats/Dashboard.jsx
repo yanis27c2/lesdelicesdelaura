@@ -30,15 +30,24 @@ const toKey = (d) => {
 
 const parseOrderDate = (o) => {
     if (!o) return new Date();
-    if (o.pickupDate) {
-        const d = new Date(o.pickupDate);
+    
+    const tryParse = (dateStr) => {
+        if (!dateStr) return null;
+        // Si ISO string
+        let d = new Date(dateStr);
         if (!isNaN(d.getTime())) return d;
-    }
-    if (o.createdAt) {
-        const d = new Date(o.createdAt);
-        if (!isNaN(d.getTime())) return d;
-    }
-    return new Date();
+        
+        // Si format DD/MM/YYYY
+        if (typeof dateStr === 'string' && dateStr.includes('/')) {
+            const [day, month, year] = dateStr.split('/').map(Number);
+            d = new Date(year, month - 1, day);
+            if (!isNaN(d.getTime())) return d;
+        }
+        return null;
+    };
+
+    const dateRef = tryParse(o.pickupDate) || tryParse(o.createdAt);
+    return dateRef || new Date();
 };
 
 function getPeriodBounds(preset, customFrom, customTo) {
@@ -46,8 +55,14 @@ function getPeriodBounds(preset, customFrom, customTo) {
     if (preset === 'today') return { from: startOfDay(now), to: endOfDay(now) };
     if (preset === '7d') { const f = new Date(now); f.setDate(f.getDate() - 6); return { from: startOfDay(f), to: endOfDay(now) }; }
     if (preset === '30d') { const f = new Date(now); f.setDate(f.getDate() - 29); return { from: startOfDay(f), to: endOfDay(now) }; }
-    if (preset === 'custom' && customFrom && customTo)
-        return { from: startOfDay(new Date(customFrom)), to: endOfDay(new Date(customTo)) };
+    if (preset === 'custom' && customFrom && customTo) {
+        const [yf, mf, df] = customFrom.split('-').map(Number);
+        const [yt, mt, dt] = customTo.split('-').map(Number);
+        return { 
+            from: startOfDay(new Date(yf, mf - 1, df)), 
+            to: endOfDay(new Date(yt, mt - 1, dt)) 
+        };
+    }
     return { from: startOfDay(now), to: endOfDay(now) };
 }
 

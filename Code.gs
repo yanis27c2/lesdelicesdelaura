@@ -121,24 +121,30 @@ function doPost(e) {
     // ---- 5. COMMANDES (upsert par ID) ----
     if (data.commandes && data.commandes.length > 0) {
       var sheetCmd = getOrCreateSheet(ss, 'Commandes', [
-        'ID', 'Type', 'Date Création', 'Nom Client', 'Téléphone',
-        'Date Retrait', 'Heure Retrait', 'Début Production',
-        'Total (€)', 'Acompte (€)', 'Reste à Payer (€)',
-        'Statut', 'Notes', 'Détail Articles', 'Parsed Items'
+        'ID', 'Nom Client', 'Téléphone', 'Statut', 'Date Retrait', 'Heure', 
+        'Articles', 'Total (€)', 'Acompte (€)', 'Reste à Payer (€)', 'Notes', 
+        'Créé le', 'Début Production', 'Type', 'Parsed'
       ]);
       data.commandes.forEach(function(c) {
-        var createdAt = c.createdAt
-          ? Utilities.formatDate(new Date(c.createdAt), 'Europe/Paris', 'dd/MM/yyyy HH:mm')
-          : '';
+        var createdAt = c.createdAt || '';
         var total = parseFloat(c.totalPrice) || 0;
         var deposit = parseFloat(c.deposit) || 0;
+        var remaining = Math.max(0, total - deposit);
         var row = [
-          c.id, c.type || 'Standard', createdAt,
-          c.customerName || '', c.customerPhone || '',
-          c.pickupDate || '', c.pickupTime || '', c.productionStartDate || '',
-          total, deposit, Math.max(0, total - deposit),
+          c.id, 
+          c.customerName || '', 
+          c.customerPhone || '',
           c.status || 'en_attente',
-          c.notes || '', c.items || '',
+          c.pickupDate || '', 
+          c.pickupTime || '',
+          c.items || '',
+          total, 
+          deposit,
+          remaining,
+          c.notes || '',
+          createdAt,
+          c.productionStartDate || '',
+          c.type || 'Standard',
           JSON.stringify(c.parsedItems || [])
         ];
         // Upsert : chercher la ligne existante avec ce ID
@@ -234,25 +240,33 @@ function doGet(e) {
           
           function fmtVal(v) {
             if (v instanceof Date && !isNaN(v.getTime())) {
+              // Si c'est un objet Date (souvent fin 1899 pour les heures seules), on formate proprement
+              // Si l'année est < 1970, c'est probablement juste une heure
+              if (v.getFullYear() < 1970) {
+                return Utilities.formatDate(v, 'Europe/Paris', 'HH:mm');
+              }
               return Utilities.formatDate(v, 'Europe/Paris', 'dd/MM/yyyy HH:mm');
             }
-            return v !== null && v !== undefined ? String(v) : '';
+            var str = v !== null && v !== undefined ? String(v) : '';
+            if (str.indexOf('Dec 30 1899') !== -1) return ''; // Nettoyage date nulle Excel/Google
+            return str;
           }
 
           function userDate(v) {
              if (v instanceof Date && !isNaN(v.getTime())) {
+                if (v.getFullYear() < 1970) return '';
                 return Utilities.formatDate(v, 'Europe/Paris', 'dd/MM/yyyy');
              }
              if (typeof v === 'string' && v.match(/^\d{4}-\d{2}-\d{2}/)) {
-                // Si c'est du YYYY-MM-DD, on le laisse tel quel (deja traite en amont ou via input)
-                // Mais pour le retour GET, on prefere DD/MM/YYYY
                 var parts = v.split('-');
                 return parts[2] + '/' + parts[1] + '/' + parts[0];
              }
-             return v !== null && v !== undefined ? String(v) : '';
+             var str = v !== null && v !== undefined ? String(v) : '';
+             if (str.indexOf('Dec 30 1899') !== -1) return '';
+             return str;
           }
 
-          var status = fmtVal(row[11]);
+          var status = fmtVal(row[3]);
           if (status === 'recupere' || status === 'collected') continue;
 
           var parsedItemsJson = row[14] || '[]';
@@ -265,18 +279,18 @@ function doGet(e) {
 
           commandes.push({
             id: row[0],
-            type: fmtVal(row[1]),
-            createdAt: fmtVal(row[2]),
-            customerName: fmtVal(row[3]),
-            customerPhone: fmtVal(row[4]),
-            pickupDate: userDate(row[5]),
-            pickupTime: fmtVal(row[6]),
-            productionStartDate: userDate(row[7]),
-            totalPrice: parseFloat(row[8]) || 0,
-            deposit: parseFloat(row[9]) || 0,
-            status: fmtVal(row[11]),
-            notes: fmtVal(row[12]),
-            items: fmtVal(row[13]),
+            customerName: fmtVal(row[1]),
+            customerPhone: fmtVal(row[2]),
+            status: status,
+            pickupDate: userDate(row[4]),
+            pickupTime: fmtVal(row[5]),
+            items: fmtVal(row[6]),
+            totalPrice: parseFloat(row[7]) || 0,
+            deposit: parseFloat(row[8]) || 0,
+            notes: fmtVal(row[10]),
+            createdAt: fmtVal(row[11]),
+            productionStartDate: userDate(row[12]),
+            type: fmtVal(row[13]),
             parsedItems: parsedItems
           });
         }

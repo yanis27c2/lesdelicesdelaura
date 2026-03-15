@@ -24,11 +24,11 @@ export default function SyncManager({ isOnline }) {
 
     const countPending = async () => {
         try {
-            const [sales, depenses, clotures, stockHistory] = await Promise.all([
-                getUnsyncedSales(), getUnsyncedExpenses(), getUnsyncedZReports(), getUnsyncedStockHistory()
+            const [sales, depenses, clotures, stockHistory, orders, devis] = await Promise.all([
+                getUnsyncedSales(), getUnsyncedExpenses(), getUnsyncedZReports(), getUnsyncedStockHistory(),
+                getOrders(), getDevis()
             ]);
-            // Commandes et devis ne sont PAS comptés comme "à supprimer" —
-            setPendingCount(sales.length + depenses.length + clotures.length + stockHistory.length);
+            setPendingCount(sales.length + depenses.length + clotures.length + stockHistory.length + orders.length + devis.length);
         } catch (err) {
             console.error('Erreur comptage données', err);
         }
@@ -60,8 +60,7 @@ export default function SyncManager({ isOnline }) {
 
         const confirmed = window.confirm(
             `Téléverser les données vers Google Sheets ?\n\n` +
-            `• Ventes, mouvements de stock, dépenses, clôtures → envoyées puis effacées localement\n` +
-            `• Commandes et devis → copiés dans le Sheet, conservés en local`
+            `⚠️ TOUTES les données locales (ventes, commandes, devis, etc.) seront EFFACÉES après le succès de l'envoi.`
         );
         if (!confirmed) return;
 
@@ -85,12 +84,15 @@ export default function SyncManager({ isOnline }) {
                 clotures,
                 commandes: commandes.map(o => ({
                     ...o,
+                    createdAt: fmtDateTime(o.createdAt),
                     pickupDate: toSheetDate(o.pickupDate),
                     productionStartDate: toSheetDate(o.productionStartDate)
                 })),
                 devis: devis.map(d => ({
                     ...d,
-                    validityDate: toSheetDate(d.validityDate)
+                    createdAt: fmtDateTime(d.createdAt),
+                    validityDate: toSheetDate(d.validityDate),
+                    pickupDate: toSheetDate(d.pickupDate)
                 })),
                 stock_history,
                 customers
@@ -111,7 +113,9 @@ export default function SyncManager({ isOnline }) {
                 clearAllSales(),
                 clearAllExpenses(),
                 clearAllZReports(),
-                clearStockHistory()
+                clearStockHistory(),
+                clearAllOrders(),
+                clearAllDevis()
             ]);
             // Commandes et devis : ON NE SUPPRIME PAS — ils restent en local
 
@@ -148,6 +152,22 @@ function toSheetDate(str) {
         return `${d}/${m}/${y}`;
     }
     return str;
+}
+
+function fmtDateTime(isoStr) {
+    if (!isoStr) return '';
+    try {
+        const d = new Date(isoStr);
+        if (isNaN(d.getTime())) return isoStr;
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        return `${day}/${month}/${year} ${hours}:${minutes}`;
+    } catch (e) {
+        return isoStr;
+    }
 }
     const handlePurgeLocal = async () => {
         const confirmed = window.confirm(
@@ -367,10 +387,12 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
                             status: order.status || 'en_attente',
                             notes: order.notes || '',
                             items: order.items || '',
-                            parsedItems: order.parsedItems || [],
+                            parsedItems: typeof order.parsedItems === 'string' ? JSON.parse(order.parsedItems) : (order.parsedItems || []),
                         });
                         commandesUpdated++;
                     }
+                    console.log(`[Sync] ${commandesUpdated} commandes importées.`);
+                    window.dispatchEvent(new Event('ordersUpdated'));
                 }
 
                 // ── 3. DEVIS : remplacement complet ──────────────────────
@@ -385,8 +407,8 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
                             customerName: d.customerName || '',
                             customerPhone: d.customerPhone || '',
                             customerEmail: d.customerEmail || '',
-                            validityDate: d.validityDate || '',
-                            pickupDate: d.pickupDate || '',
+                            validityDate: fromSheetDate(d.validityDate),
+                            pickupDate: fromSheetDate(d.pickupDate),
                             totalPrice: parseFloat(d.totalPrice) || 0,
                             discount: parseFloat(d.discount) || 0,
                             status: d.status || 'brouillon',
@@ -395,6 +417,8 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
                         });
                         devisUpdated++;
                     }
+                    console.log(`[Sync] ${devisUpdated} devis importés.`);
+                    window.dispatchEvent(new Event('devisUpdated'));
                 }
 
                 // ── 4. VENTES : remplacement complet ─────────────────────

@@ -270,6 +270,28 @@ export const markSalesAsSynced = async (saleIds) => {
     });
 };
 
+export const updateSale = async (sale) => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_SALES], 'readwrite');
+        const store = transaction.objectStore(STORE_SALES);
+        const request = store.put(sale);
+        request.onsuccess = () => resolve(true);
+        request.onerror = (e) => reject(e.target.error);
+    });
+};
+
+export const deleteSale = async (id) => {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_SALES], 'readwrite');
+        const store = transaction.objectStore(STORE_SALES);
+        const request = store.delete(id);
+        request.onsuccess = () => resolve(true);
+        request.onerror = (e) => reject(e.target.error);
+    });
+};
+
 // --- CATALOG DATA (PRODUCTS & CATEGORIES) ---
 
 export const getCategories = async () => {
