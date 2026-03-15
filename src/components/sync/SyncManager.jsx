@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
-import { CloudUpload, RefreshCw, CheckCircle, AlertCircle, CloudDownload, Trash2 } from 'lucide-react';
+import { CloudUpload, RefreshCw, CheckCircle, AlertCircle, CloudDownload, Trash2, Download, Upload, ShieldAlert } from 'lucide-react';
 import {
     getAllSales, getProducts, getCategories,
     getExpenses, getZReports, getOrders, getDevis,
@@ -224,6 +223,73 @@ function fmtDateTime(isoStr) {
         }
     };
 
+    const handleExportBackup = async () => {
+        try {
+            const [ventes, depenses, clotures, orders, devis, customers] = await Promise.all([
+                getAllSales(), getExpenses(), getZReports(), getOrders(), getDevis(), getCustomers()
+            ]);
+            
+            const backup = {
+                version: '1.0',
+                date: new Date().toISOString(),
+                data: { ventes, depenses, clotures, orders, devis, customers }
+            };
+            
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bakery_backup_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showResult({ success: true, message: "Sauvegarde JSON téléchargée !" });
+        } catch (err) {
+            showResult({ success: false, message: "Erreur export : " + err.message });
+        }
+    };
+
+    const handleImportBackup = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const backup = JSON.parse(event.target.result);
+                if (!backup.data) throw new Error("Format de fichier invalide");
+
+                const confirmed = window.confirm("Ceci va ÉCRASER vos données locales actuelles par celles du fichier. Continuer ?");
+                if (!confirmed) return;
+
+                // Simple batch save
+                if (backup.data.orders) {
+                    await clearAllOrders();
+                    for (const o of backup.data.orders) await saveOrder(o);
+                }
+                if (backup.data.ventes) {
+                    await clearAllSales();
+                    for (const v of backup.data.ventes) await saveSale(v, true);
+                }
+                if (backup.data.devis) {
+                    await clearAllDevis();
+                    for (const d of backup.data.devis) await saveDevis(d);
+                }
+                // ... add other stores if needed
+
+                window.dispatchEvent(new Event('catalogUpdated'));
+                window.dispatchEvent(new Event('saleAdded'));
+                countPending();
+                showResult({ success: true, message: "Données restaurées avec succès !" });
+            } catch (err) {
+                showResult({ success: false, message: "Erreur import : " + err.message });
+            }
+        };
+        reader.readAsText(file);
+    };
+
     const hasPending = pendingCount > 0;
 
     return (
@@ -247,17 +313,6 @@ function fmtDateTime(isoStr) {
                     <span className="sync-btn__label">
                         {isDownloading ? 'Import...' : 'Importer'}
                     </span>
-                </button>
-
-                <button
-                    className="sync-btn sync-btn-purge"
-                    onClick={handlePurgeLocal}
-                    title="Supprimer les données locales pour repartir de zéro"
-                >
-                    <span className="sync-btn__icon">
-                        <Trash2 size={18} />
-                    </span>
-                    <span className="sync-btn__label">Purger</span>
                 </button>
 
                 <button
@@ -288,6 +343,28 @@ function fmtDateTime(isoStr) {
                     </span>
                     {!isOnline && <span className="sync-btn__offline">Hors-ligne</span>}
                 </button>
+            </div>
+
+            <div className="sync-safety-zone">
+                <div className="safety-header">
+                    <ShieldAlert size={16} />
+                    <span>Zone de Secours (iPad / Offline)</span>
+                </div>
+                <p className="safety-desc">Utilisez ces outils si la synchronisation automatique échoue.</p>
+                <div className="safety-actions">
+                    <button className="safety-btn export" onClick={handleExportBackup}>
+                        <Download size={14} /> Exporter Sauvegarde .json
+                    </button>
+                    
+                    <label className="safety-btn import">
+                        <Upload size={14} /> Importer Sauvegarde
+                        <input type="file" accept=".json" onChange={handleImportBackup} style={{ display: 'none' }} />
+                    </label>
+
+                    <button className="safety-btn purge" onClick={handlePurgeLocal}>
+                        <Trash2 size={14} /> Purger Appareil
+                    </button>
+                </div>
             </div>
             {lastSync && !isSyncing && (
                 <div className="sync-last-time">Dernier sync : {lastSync}</div>
