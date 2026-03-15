@@ -77,6 +77,17 @@
     border-color: #86efac;
 }
 
+.sync-btn-purge {
+    background-color: #fff1f2;
+    color: #e11d48;
+    border: 1px solid #fecdd3;
+}
+
+.sync-btn-purge:hover:not(:disabled) {
+    background-color: #ffe4e6;
+    border-color: #fda4af;
+}
+
 
 .sync-btn__icon {
     display: flex;

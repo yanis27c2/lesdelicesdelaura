@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { CloudUpload, RefreshCw, CheckCircle, AlertCircle, CloudDownload } from 'lucide-react';
+import { CloudUpload, RefreshCw, CheckCircle, AlertCircle, CloudDownload, Trash2 } from 'lucide-react';
 import {
     getAllSales, getProducts, getCategories,
     getExpenses, getZReports, getOrders, getDevis,
@@ -114,6 +114,36 @@ export default function SyncManager({ isOnline }) {
         }
     };
 
+    const handlePurgeLocal = async () => {
+        const confirmed = window.confirm(
+            "⚠️ ATTENTION : Purger les données locales ?\n\n" +
+            "Cela effacera TOUTES les ventes, dépenses, clôtures, commandes et devis stockés sur CET APPAREIL.\n\n" +
+            "Assurez-vous que vos données importantes sont bien sur Google Sheets. Continuer ?"
+        );
+        if (!confirmed) return;
+
+        try {
+            await Promise.all([
+                clearAllSales(),
+                clearAllExpenses(),
+                clearAllZReports(),
+                clearStockHistory(),
+                clearAllOrders(),
+                clearAllDevis()
+            ]);
+            // On garde le catalogue (produits) pour éviter un écran vide, 
+            // l'utilisateur pourra faire "Importer" pour le mettre à jour.
+
+            window.dispatchEvent(new Event('catalogUpdated'));
+            window.dispatchEvent(new Event('saleAdded'));
+            setPendingCount(0);
+            showResult({ success: true, message: "Données locales purgées. Vous pouvez maintenant importer depuis le Cloud." });
+        } catch (err) {
+            console.error("Erreur purge:", err);
+            showResult({ success: false, message: "Erreur lors de la purge : " + err.message });
+        }
+    };
+
     const [isDownloading, setIsDownloading] = useState(false);
 
     const handleDownload = async () => {
@@ -161,6 +191,17 @@ export default function SyncManager({ isOnline }) {
                     <span className="sync-btn__label">
                         {isDownloading ? 'Import...' : 'Importer'}
                     </span>
+                </button>
+
+                <button
+                    className="sync-btn sync-btn-purge"
+                    onClick={handlePurgeLocal}
+                    title="Supprimer les données locales pour repartir de zéro"
+                >
+                    <span className="sync-btn__icon">
+                        <Trash2 size={18} />
+                    </span>
+                    <span className="sync-btn__label">Purger</span>
                 </button>
 
                 <button
