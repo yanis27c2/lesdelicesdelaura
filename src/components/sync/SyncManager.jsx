@@ -287,71 +287,7 @@ export default function SyncManager({ isOnline }) {
                 </button>
             </div>
 
-             {/* Aide & Secours Restored */}
-            <div className="sync-section-divider"></div>
-            
-            <div className="sync-help-section">
-                <h3 className="sync-help-title"><ShieldAlert size={16} /> Aide & Secours</h3>
-                
 
-
-                <p className="sync-help-text">
-                    Si vos commandes ne s'affichent plus ou si vous voulez faire une sauvegarde manuelle sur votre iPad :
-                </p>
-                
-                <div className="sync-help-actions">
-                    <button className="sync-help-btn" onClick={async () => {
-                        try {
-                            const [ventes, products, categories, depenses, clotures, commandes, devis, customers] = await Promise.all([
-                                getAllSales(), getProducts(), getCategories(), getExpenses(), getZReports(), getOrders(), getDevis(), getCustomers()
-                            ]);
-                            const data = { ventes, products, categories, depenses, clotures, commandes, devis, customers, exportDate: new Date().toISOString() };
-                            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `backup_boulangerie_${new Date().toISOString().slice(0, 10)}.json`;
-                            a.click();
-                            showResult({ success: true, message: "Sauvegarde JSON téléchargée." });
-                        } catch (e) {
-                            showResult({ success: false, message: "Erreur export: " + e.message });
-                        }
-                    }}>
-                        <Download size={14} /> Sauvegarder (Fichier JSON)
-                    </button>
-
-                    <label className="sync-help-btn ghost">
-                        <Upload size={14} /> Restaurer un fichier
-                        <input type="file" accept=".json" style={{ display: 'none' }} onChange={async (e) => {
-                            const file = e.target.result; // Not how it works, need FileReader
-                        }} />
-                        {/* Inline JS for simpler import */}
-                        <input type="file" accept=".json" style={{ display: 'none' }} onChange={async (event) => {
-                            const file = event.target.files[0];
-                            if (!file) return;
-                            const reader = new FileReader();
-                            reader.onload = async (e) => {
-                                try {
-                                    const data = JSON.parse(e.target.result);
-                                    if (confirm("⚠️ RESTAURER ? Cela va fusionner les données du fichier avec votre iPad.")) {
-                                        if (data.commandes) {
-                                            for (const o of data.commandes) await saveOrder(o);
-                                        }
-                                        if (data.devis) {
-                                            for (const d of data.devis) await saveDevis(d);
-                                        }
-                                        showResult({ success: true, message: "Restauration terminée." });
-                                        window.dispatchEvent(new Event('ordersUpdated'));
-                                    }
-                                } catch (err) {
-                                    showResult({ success: false, message: "Fichier invalide." });
-                                }
-                            };
-                            reader.readAsText(file);
-                        }} />
-                    </label>
-                </div>
-            </div>
 
             <div className="sync-footer-actions">
                 <button className="sync-btn-purge-text" onClick={handlePurgeLocal}>
