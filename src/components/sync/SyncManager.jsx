@@ -150,23 +150,37 @@ export default function SyncManager({ isOnline }) {
                 mode: 'no-cors',   // Google Apps Script requiert no-cors
             });
 
-            // Ventes, dépenses et clôtures sont purgées (elles ont été envoyées).
-            // Les commandes et devis sont conservées localement : elles utilisent upsertRow
-            // côté serveur (pas de doublon) et doivent rester visibles dans le calendrier.
+            // Tout est purgé localement : Google Sheets est la source de vérité.
             await Promise.all([
                 clearAllSales(),
                 clearAllExpenses(),
                 clearAllZReports(),
                 clearStockHistory(),
+                clearAllOrders(),
+                clearAllDevis(),
             ]);
 
             const now = new Date().toLocaleString('fr-FR');
             localStorage.setItem(LAST_SYNC_KEY, now);
             setLastSync(now);
+            setPendingCount(0);
+
+            // Re-importer automatiquement les commandes et devis depuis Sheets
+            // pour que le calendrier et l'onglet Commandes restent peuplés.
+            showResult({ success: true, message: `Envoi réussi. Rechargement des commandes...` });
+            try {
+                const importResult = await syncFromCloud(saveOrder, saveDevis);
+                if (!importResult.success) {
+                    console.warn('[Sync] Re-import post-téléversement échoué :', importResult.message);
+                }
+            } catch (importErr) {
+                console.warn('[Sync] Re-import post-téléversement erreur :', importErr);
+            }
 
             window.dispatchEvent(new Event('catalogUpdated'));
-            setPendingCount(0);
-            showResult({ success: true, message: `Synchronisation réussie le ${now}. iPad vidé.` });
+            window.dispatchEvent(new Event('ordersUpdated'));
+            window.dispatchEvent(new Event('devisUpdated'));
+            showResult({ success: true, message: `Synchronisation réussie le ${now}.` });
 
         } catch (err) {
             console.error('Erreur synchronisation:', err);
