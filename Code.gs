@@ -369,15 +369,35 @@ function doGet(e) {
           var saleId = String(vrow[0] || '');
           if (!saleId) continue;
 
-          var dSale = parseDate(vrow[1]);
-          if (dSale && dSale < cutoff) continue;
+          var dSaleStr = String(vrow[1] || '').split(' ')[0]; // Just the date part if it got implicitly converted
+          var tSaleStr = String(vrow[2] || '');
+          var combinedDate = null;
+          
+          if (dSaleStr && dSaleStr.indexOf('Dec 30') === -1) {
+            // Usually formatted as DD/MM/YYYY
+            if (dSaleStr.match(/^\d{2}\/\d{2}\/\d{4}/)) {
+                var pDate = dSaleStr.split('/');
+                // If time matches HH:mm:ss
+                var h = 12, m = 0, s = 0;
+                if (tSaleStr.match(/^\d{2}:\d{2}:\d{2}/)) {
+                    var pTime = tSaleStr.split(':');
+                    h = parseInt(pTime[0], 10);
+                    m = parseInt(pTime[1], 10);
+                    s = parseInt(pTime[2], 10);
+                }
+                combinedDate = new Date(pDate[2], parseInt(pDate[1], 10)-1, pDate[0], h, m, s);
+            } else {
+                combinedDate = parseDate(vrow[1]);
+            }
+          }
+
+          if (combinedDate && combinedDate < cutoff) continue;
 
           if (!ventesMap[saleId]) {
             ventesMap[saleId] = {
               id: saleId,
               // Do NOT fall back to new Date() — if date is missing keep it empty
-              // to avoid stamping all broken entries with the same "now" timestamp
-              timestamp: dSale && !isNaN(dSale.getTime()) ? dSale.toISOString() : '',
+              timestamp: combinedDate && !isNaN(combinedDate.getTime()) ? combinedDate.toISOString() : '',
 
               total: 0,
               discount: parseFloat(vrow[8]) || 0,

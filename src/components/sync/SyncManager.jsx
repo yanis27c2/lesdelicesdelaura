@@ -215,6 +215,7 @@ export default function SyncManager({ isOnline }) {
 
             window.dispatchEvent(new Event('catalogUpdated'));
             window.dispatchEvent(new Event('saleAdded'));
+            window.dispatchEvent(new Event('ventesUpdated'));
             setPendingCount(0);
             showResult({ success: true, message: "Données locales purgées. Vous pouvez maintenant importer depuis le Cloud." });
         } catch (err) {
@@ -469,6 +470,9 @@ export async function syncFromCloud(saveOrderFn, saveDevisFn) {
                         await saveSale(s, true); // le second argument true évite de déclencher des événements en boucle
                         salesUpdated++;
                     }
+                    console.log(`[Sync] ${salesUpdated} ventes importées.`);
+                    window.dispatchEvent(new Event('saleAdded'));
+                    window.dispatchEvent(new Event('ventesUpdated'));
                 }
 
                 resolve({

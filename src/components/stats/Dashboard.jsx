@@ -22,6 +22,7 @@ const fmtFull = (d) => d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'n
 
 const toKey = (d) => {
     const x = new Date(d);
+    if (isNaN(x.getTime())) return '';
     const y = x.getFullYear();
     const m = String(x.getMonth() + 1).padStart(2, '0');
     const day = String(x.getDate()).padStart(2, '0');
@@ -279,9 +280,11 @@ export default function Dashboard() {
     useEffect(() => {
         const refresh = () => loadData();
         window.addEventListener('saleAdded', refresh);
+        window.addEventListener('ventesUpdated', refresh);
         window.addEventListener('catalogUpdated', refresh);
         return () => {
             window.removeEventListener('saleAdded', refresh);
+            window.removeEventListener('ventesUpdated', refresh);
             window.removeEventListener('catalogUpdated', refresh);
         };
     }, []);
