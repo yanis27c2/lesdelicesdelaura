@@ -130,7 +130,13 @@
     display: flex;
     gap: 8px;
     align-items: center;
-    margin-top: 10px;
+    margin-top: 4px;
+}
+
+.sync-btn-group--bottom {
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid #f1f5f9;
 }
 
 .sync-btn-download {
@@ -144,16 +150,7 @@
     border-color: #86efac;
 }
 
-.sync-btn-purge {
-    background-color: #fff1f2;
-    color: #e11d48;
-    border: 1px solid #fecdd3;
-}
-
-.sync-btn-purge:hover:not(:disabled) {
-    background-color: #ffe4e6;
-    border-color: #fda4af;
-}
+/* Purge button styles removed */
 
 
 .sync-btn__icon {
@@ -244,32 +241,7 @@
     }
 }
 
-/* ===== SYNC FOOTER ACTIONS ===== */
-.sync-footer-actions {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid #f1f5f9;
-    width: 100%;
-    display: flex;
-    justify-content: center;
-}
-
-.sync-btn-purge-text {
-    background: transparent;
-    border: none;
-    color: #94a3b8;
-    font-size: 0.75rem;
-    font-weight: 500;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: color 0.2s;
-}
-
-.sync-btn-purge-text:hover {
-    color: #e11d48;
-}
+/* Purge text styles removed */
 
 .sync-footer-info {
     display: flex;

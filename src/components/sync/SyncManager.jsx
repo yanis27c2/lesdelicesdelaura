@@ -269,7 +269,19 @@ export default function SyncManager({ isOnline }) {
                     </div>
                 </div>
             )}
-            <div className="sync-btn-group">
+            {/* Sync buttons now at the bottom */}
+
+
+
+
+            <div className="sync-footer-info">
+                {lastSync && !isSyncing && (
+                    <div className="sync-last-time">Dernier sync : {lastSync}</div>
+                )}
+                <div className="sync-version">v1.0.8</div>
+            </div>
+
+            <div className="sync-btn-group sync-btn-group--bottom">
                 <button
                     className={`sync-btn sync-btn-download ${isDownloading ? 'sync-btn--loading' : ''}`}
                     onClick={handleDownload}
@@ -312,21 +324,6 @@ export default function SyncManager({ isOnline }) {
                     </span>
                     {!isOnline && <span className="sync-btn__offline">Hors-ligne</span>}
                 </button>
-            </div>
-
-
-
-            <div className="sync-footer-actions">
-                <button className="sync-btn-purge-text" onClick={handlePurgeLocal}>
-                   <Trash2 size={13} /> Purger TOUTES les données (Ventes + Commandes)
-                </button>
-            </div>
-
-            <div className="sync-footer-info">
-                {lastSync && !isSyncing && (
-                    <div className="sync-last-time">Dernier sync : {lastSync}</div>
-                )}
-                <div className="sync-version">v1.0.7</div>
             </div>
         </div>
     );
