@@ -150,15 +150,14 @@ export default function SyncManager({ isOnline }) {
                 mode: 'no-cors',   // Google Apps Script requiert no-cors
             });
 
-            // IMPORTANT : Avec no-cors, on ne sait pas si ça a réussi à 100%.
-            // Cependant, suite à votre demande, on vide TOUT pour ne rien laisser sur l'iPad
+            // Ventes, dépenses et clôtures sont purgées (elles ont été envoyées).
+            // Les commandes et devis sont conservées localement : elles utilisent upsertRow
+            // côté serveur (pas de doublon) et doivent rester visibles dans le calendrier.
             await Promise.all([
                 clearAllSales(),
                 clearAllExpenses(),
                 clearAllZReports(),
                 clearStockHistory(),
-                clearAllOrders(),
-                clearAllDevis()
             ]);
 
             const now = new Date().toLocaleString('fr-FR');
