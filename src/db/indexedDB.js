@@ -133,7 +133,7 @@ export const logStockMovement = async (productId, productName, quantityChange, n
             newStock,
             type, // 'vente', 'commande', 'reassort', 'manuel'
             referenceId,
-            synced: false
+            synced: 0
         });
         request.onsuccess = e => resolve(e.target.result);
         request.onerror = e => reject(e.target.error);
@@ -176,7 +176,7 @@ export const saveSale = async (saleData, isImport = false) => {
         const sale = {
             ...saleData,
             timestamp: isImport ? (saleData.timestamp || new Date().toISOString()) : new Date().toISOString(),
-            synced: isImport ? true : false,
+            synced: isImport ? 1 : 0,
         };
 
         const request = salesStore.add(sale);
@@ -210,7 +210,7 @@ export const saveSale = async (saleData, isImport = false) => {
                                     newStock: newStock,
                                     type: 'vente',
                                     referenceId: String(saleId),
-                                    synced: false
+                                    synced: 0
                                 });
                             }
                         }
@@ -229,7 +229,7 @@ export const getUnsyncedSales = async () => {
         const transaction = db.transaction([STORE_SALES], 'readonly');
         const store = transaction.objectStore(STORE_SALES);
         const index = store.index('synced');
-        const request = index.getAll(IDBKeyRange.only(false));
+        const request = index.getAll(IDBKeyRange.only(0));
 
         request.onsuccess = (event) => resolve(event.target.result);
         request.onerror = (event) => reject(event.target.error);
@@ -262,7 +262,7 @@ export const markSalesAsSynced = async (saleIds) => {
             getReq.onsuccess = (event) => {
                 const sale = event.target.result;
                 if (sale) {
-                    sale.synced = true;
+                    sale.synced = 1;
                     store.put(sale);
                 }
             };
@@ -377,7 +377,7 @@ export const getUnsyncedExpenses = async () => {
         const request = store.getAll();
         request.onsuccess = (event) => {
             const items = event.target.result;
-            resolve(items.filter(i => i.synced === false || i.synced === undefined));
+            resolve(items.filter(i => !i.synced)); // handles undefined, 0, or false
         };
         request.onerror = (event) => reject(event.target.error);
     });
@@ -427,7 +427,7 @@ export const getUnsyncedZReports = async () => {
         const request = store.getAll();
         request.onsuccess = (event) => {
             const items = event.target.result;
-            resolve(items.filter(i => i.synced === false || i.synced === undefined));
+            resolve(items.filter(i => !i.synced)); // handles undefined, 0, or false
         };
         request.onerror = (event) => reject(event.target.error);
     });
@@ -538,7 +538,7 @@ export const saveOrder = async (orderData) => {
                                     newStock: newStock,
                                     type: 'commande',
                                     referenceId: String(orderId),
-                                    synced: false
+                                    synced: 0
                                 });
                             }
                         }
