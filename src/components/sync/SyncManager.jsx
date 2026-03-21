@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { CloudUpload, RefreshCw, CheckCircle, AlertCircle, CloudDownload, Trash2, ShieldAlert, Download, Upload } from 'lucide-react';
 import {
-    getAllSales, getProducts, getCategories,
-    getExpenses, getZReports, getOrders, getDevis,
+    getProducts, getCategories,
+    getOrders, getDevis,
     clearAllSales, clearAllExpenses, clearAllZReports,
     saveOrder, saveDevis, getUnsyncedStockHistory, clearStockHistory,
     saveProduct, deleteProduct, saveCategory, getCustomers,
-    clearCatalog, clearAllOrders, clearAllDevis, saveSale,
+    clearAllOrders, clearAllDevis, saveSale,
     getUnsyncedSales, getUnsyncedExpenses, getUnsyncedZReports, clearAllCustomers
 } from '../../db/indexedDB';
 import './SyncManager.css';
 
-export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz9rk-6tmCsEN_QhbhBF25uRG5XKanS6vqcLBmc1NVlEKSsEFCpVfDdY_3o6XmWrCK/exec';
+export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz9rk-6tmCsEN_QhbhBF25uRG5XKanS6vqcLBmcE1NVlEKSsEFCpVfDdY_3o6XmWrCK/exec';
 
 const LAST_SYNC_KEY = 'bakery_last_sync';
 
@@ -113,8 +113,8 @@ export default function SyncManager({ isOnline }) {
 
         try {
             const [ventes, products, categories, depenses, clotures, commandes, devis, stock_history, customers] = await Promise.all([
-                getAllSales(), getProducts(), getCategories(),
-                getExpenses(), getZReports(), getOrders(), getDevis(), getUnsyncedStockHistory(), getCustomers()
+                getUnsyncedSales(), getProducts(), getCategories(),
+                getUnsyncedExpenses(), getUnsyncedZReports(), getOrders(), getDevis(), getUnsyncedStockHistory(), getCustomers()
             ]);
 
             const catMap = {};
@@ -308,9 +308,12 @@ export default function SyncManager({ isOnline }) {
                 </button>
             </div>
 
-            {lastSync && !isSyncing && (
-                <div className="sync-last-time">Dernier sync : {lastSync} | v1.0.4</div>
-            )}
+            <div className="sync-footer-info">
+                {lastSync && !isSyncing && (
+                    <div className="sync-last-time">Dernier sync : {lastSync}</div>
+                )}
+                <div className="sync-version">v1.0.7</div>
+            </div>
         </div>
     );
 }

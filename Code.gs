@@ -26,9 +26,11 @@ function doPost(e) {
         'Mode Paiement', 'Montant Donné (€)', 'Rendu (€)'
       ]);
       data.ventes.forEach(function(v) {
-        var d = new Date(v.timestamp);
-        var dateStr = Utilities.formatDate(d, 'Europe/Paris', 'dd/MM/yyyy');
-        var heureStr = Utilities.formatDate(d, 'Europe/Paris', 'HH:mm:ss');
+        // Skip if this sale ID already exists in the sheet
+        if (rowExistsWithId(sheetVentes, v.id)) return;
+        var ts = v.timestamp ? new Date(v.timestamp) : null;
+        var dateStr = ts && !isNaN(ts.getTime()) ? Utilities.formatDate(ts, 'Europe/Paris', 'dd/MM/yyyy') : '';
+        var heureStr = ts && !isNaN(ts.getTime()) ? Utilities.formatDate(ts, 'Europe/Paris', 'HH:mm:ss') : '';
         if (v.items && v.items.length > 0) {
           v.items.forEach(function(item) {
             var pu = parseFloat(item.price) || 0;
@@ -87,11 +89,13 @@ function doPost(e) {
         'ID', 'Date', 'Heure', 'Montant (€)', 'Motif', 'Note'
       ]);
       data.depenses.forEach(function(d) {
-        var dt = new Date(d.timestamp);
+        // Skip if this expense ID already exists in the sheet
+        if (rowExistsWithId(sheetDep, d.id)) return;
+        var dt = d.timestamp ? new Date(d.timestamp) : null;
         sheetDep.appendRow([
           d.id,
-          Utilities.formatDate(dt, 'Europe/Paris', 'dd/MM/yyyy'),
-          Utilities.formatDate(dt, 'Europe/Paris', 'HH:mm:ss'),
+          dt && !isNaN(dt.getTime()) ? Utilities.formatDate(dt, 'Europe/Paris', 'dd/MM/yyyy') : '',
+          dt && !isNaN(dt.getTime()) ? Utilities.formatDate(dt, 'Europe/Paris', 'HH:mm:ss') : '',
           d.amount || 0, d.reason || '', d.note || ''
         ]);
       });
@@ -105,6 +109,8 @@ function doPost(e) {
         'Carte (€)', 'Total Dépenses (€)', 'Net Caisse (€)', 'Note'
       ]);
       data.clotures.forEach(function(z) {
+        // Skip if this cloture ID already exists in the sheet
+        if (rowExistsWithId(sheetClot, z.id)) return;
         sheetClot.appendRow([
           z.id, z.date || '', z.totalRevenue || 0, z.totalSales || 0,
           z.cashTotal || 0, z.cardTotal || 0, z.totalExpenses || 0, z.netCash || 0, z.note || ''
@@ -120,10 +126,11 @@ function doPost(e) {
         'Variation', 'Nouveau Stock', 'ID Référence'
       ]);
       data.stock_history.forEach(function(sh) {
-        var dt = new Date(sh.timestamp);
+        // Skip duplicate entries based on productId + timestamp + type combo
+        var dt = sh.timestamp ? new Date(sh.timestamp) : null;
         sheetStock.appendRow([
-          Utilities.formatDate(dt, 'Europe/Paris', 'dd/MM/yyyy'),
-          Utilities.formatDate(dt, 'Europe/Paris', 'HH:mm:ss'),
+          dt && !isNaN(dt.getTime()) ? Utilities.formatDate(dt, 'Europe/Paris', 'dd/MM/yyyy') : '',
+          dt && !isNaN(dt.getTime()) ? Utilities.formatDate(dt, 'Europe/Paris', 'HH:mm:ss') : '',
           sh.productId || '',
           sh.name || '',
           sh.type || 'Inconnu',
@@ -368,7 +375,10 @@ function doGet(e) {
           if (!ventesMap[saleId]) {
             ventesMap[saleId] = {
               id: saleId,
-              timestamp: dSale ? dSale.toISOString() : new Date().toISOString(),
+              // Do NOT fall back to new Date() — if date is missing keep it empty
+              // to avoid stamping all broken entries with the same "now" timestamp
+              timestamp: dSale && !isNaN(dSale.getTime()) ? dSale.toISOString() : '',
+
               total: 0,
               discount: parseFloat(vrow[8]) || 0,
               paymentMethod: String(vrow[9] || 'Espèces'),
@@ -462,4 +472,17 @@ function upsertRow(sheet, id, row) {
     }
   }
   sheet.appendRow(row);
+}
+
+// Vérifie si un ID existe déjà dans la colonne A d'une feuille
+function rowExistsWithId(sheet, id) {
+  if (!id) return false;
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return false;
+  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  var strId = String(id);
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === strId) return true;
+  }
+  return false;
 }
