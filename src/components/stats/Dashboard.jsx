@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
     BarChart3, TrendingUp, Calendar, Euro, PieChart as PieChartIcon,
     Activity, AlertTriangle, PackageX, ShoppingBag, ArrowUpRight, ArrowDownRight,
-    Minus, ChevronDown, ChevronUp, ClipboardList, Store, RefreshCw
+    Minus, ChevronDown, ChevronUp, ClipboardList, Store, RefreshCw, Download
 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,

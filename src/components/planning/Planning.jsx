@@ -113,7 +113,8 @@ function ProductionCard({ order, onStatusChange }) {
             <div className="pcard-footer">
                 {order.totalPrice > 0 && (
                     <div className="pcard-price">
-                        Reste à percevoir : <span className="price-bold">{order.totalPrice}€</span> (Total : {order.totalPrice}€)
+                        Reste à percevoir : <span className="price-bold">{Math.max(0, parseFloat(order.totalPrice) - parseFloat(order.deposit || 0)).toFixed(2)}€</span>
+                        <span style={{ color: '#94a3b8', fontSize: '0.8rem', marginLeft: 6 }}>(Total : {parseFloat(order.totalPrice).toFixed(2)}€{order.deposit > 0 ? ` · Acompte : ${parseFloat(order.deposit).toFixed(2)}€` : ''})</span>
                     </div>
                 )}
 
@@ -312,9 +313,11 @@ export default function Production() {
         const handler = () => load();
         window.addEventListener('planningUpdated', handler);
         window.addEventListener('catalogUpdated', handler);
+        window.addEventListener('ordersUpdated', handler);
         return () => {
             window.removeEventListener('planningUpdated', handler);
             window.removeEventListener('catalogUpdated', handler);
+            window.removeEventListener('ordersUpdated', handler);
         };
     }, []);
 

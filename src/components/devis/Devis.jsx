@@ -500,6 +500,8 @@ export default function Devis() {
                 status: 'en_attente'
             });
             await saveDevis({ ...d, status: 'converti' });
+            window.dispatchEvent(new Event('ordersUpdated'));
+            window.dispatchEvent(new Event('devisConverted'));
             load();
         }
     };

@@ -602,7 +602,9 @@ function CalendarView({ orders, onStatusChange, onDelete, onAddForDate }) {
 
     const ordersByDate = {};
     orders.forEach(order => {
-        if (order.pickupDate && order.status !== 'collected') {
+        const s = order.status || 'en_attente';
+        const isDone = s === 'collected' || s === 'recupere';
+        if (order.pickupDate && !isDone) {
             if (!ordersByDate[order.pickupDate]) ordersByDate[order.pickupDate] = [];
             ordersByDate[order.pickupDate].push(order);
         }
@@ -640,8 +642,8 @@ function CalendarView({ orders, onStatusChange, onDelete, onAddForDate }) {
                         const dayOrders = ordersByDate[key] || [];
                         const isToday = key === todayKey;
                         const isSelected = selectedDay === day;
-                        const hasReady = dayOrders.some(o => o.status === 'ready');
-                        const hasPending = dayOrders.some(o => o.status === 'pending');
+                        const hasReady = dayOrders.some(o => o.status === 'pret' || o.status === 'ready');
+                        const hasPending = dayOrders.some(o => o.status === 'en_attente' || o.status === 'en_production' || o.status === 'pending');
                         return (
                             <div key={day} className={`cal-cell ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''} ${dayOrders.length > 0 ? 'has-orders' : ''}`} onClick={() => setSelectedDay(isSelected ? null : day)}>
                                 <span className="cal-day-num">{day}</span>
