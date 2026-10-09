@@ -128,14 +128,57 @@ export default function SyncManager({ isOnline }) {
                 if (p.name) prodCategoryMap[p.name.trim().toLowerCase()] = cName;
             });
 
-            const enrichedVentes = ventes.map(v => ({
-                ...v,
-                channel: v.channel || 'Boutique',
-                items: (v.items || []).map(item => ({
-                    ...item,
-                    categoryName: item.categoryName || prodCategoryMap[String(item.id)] || prodCategoryMap[(item.name || '').trim().toLowerCase()] || catMap[item.categoryId] || ''
-                }))
-            }));
+            const getIsoWeek = (date) => {
+                const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+                const dayNum = d.getUTCDay() || 7;
+                d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+                const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+                return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            };
+
+            const enrichedVentes = ventes.map(v => {
+                const ts = v.timestamp ? new Date(v.timestamp) : new Date();
+                const isValidDate = !isNaN(ts.getTime());
+                const day = isValidDate ? String(ts.getDate()).padStart(2, '0') : '';
+                const month = isValidDate ? String(ts.getMonth() + 1).padStart(2, '0') : '';
+                const year = isValidDate ? ts.getFullYear() : '';
+                const hours = isValidDate ? String(ts.getHours()).padStart(2, '0') : '';
+                const minutes = isValidDate ? String(ts.getMinutes()).padStart(2, '0') : '';
+                const seconds = isValidDate ? String(ts.getSeconds()).padStart(2, '0') : '';
+
+                const dateStr = isValidDate ? `${day}/${month}/${year}` : '';
+                const heureStr = isValidDate ? `${hours}:${minutes}:${seconds}` : '';
+                const cle = `${v.id}${dateStr}${heureStr}`;
+                const semaine = isValidDate ? getIsoWeek(ts) : '';
+                const mois = isValidDate ? (ts.getMonth() + 1) : '';
+                const annee = isValidDate ? year : '';
+                const canal = v.channel || 'Boutique';
+
+                return {
+                    ...v,
+                    date: dateStr,
+                    heure: heureStr,
+                    cle: cle,
+                    semaine: semaine,
+                    mois: mois,
+                    annee: annee,
+                    canal: canal,
+                    channel: canal,
+                    items: (v.items || []).map(item => {
+                        const catName = item.categoryName || prodCategoryMap[String(item.id)] || prodCategoryMap[(item.name || '').trim().toLowerCase()] || catMap[item.categoryId] || '';
+                        return {
+                            ...item,
+                            categoryName: catName,
+                            categorie: catName,
+                            cle: cle,
+                            semaine: semaine,
+                            mois: mois,
+                            annee: annee,
+                            canal: canal
+                        };
+                    })
+                };
+            });
 
             const payload = {
                 ventes: enrichedVentes,
