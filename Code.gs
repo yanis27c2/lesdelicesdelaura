@@ -6,6 +6,14 @@
 
 var SPREADSHEET_ID = '1WfxAHLu9WX_f66scD73w8B9lzXD_QAcArWcbgG4zy-Q';
 
+function getSpreadsheet() {
+  try {
+    var active = SpreadsheetApp.getActiveSpreadsheet();
+    if (active) return active;
+  } catch(e) {}
+  return SpreadsheetApp.openById(SPREADSHEET_ID);
+}
+
 // ╔══════════════════════════════════════════════════╗
 // ║  doPost : reçoit les données depuis la PWA       ║
 // ╚══════════════════════════════════════════════════╝
@@ -15,7 +23,7 @@ function doPost(e) {
 
   try {
     var data = JSON.parse(e.postData.contents);
-    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var ss = getSpreadsheet();
     var results = {};
 
     // ---- 1. VENTES ----
@@ -82,6 +90,9 @@ function doPost(e) {
         }
       });
       results.ventes = data.ventes.length + ' ventes ajoutées';
+      try {
+        remplirToutesLesLignesVentes();
+      } catch(e) {}
     }
 
     // ---- 2. CATALOGUE & ALERTES STOCK ----
@@ -281,9 +292,20 @@ function doGet(e) {
 
   var action = (e && e.parameter && e.parameter.action) || 'status';
 
+  if (action === 'remplir') {
+    try {
+      remplirToutesLesLignesVentes();
+      refreshPivotTables();
+      output.setContent(JSON.stringify({ status: 'ok', message: 'Toutes les lignes M à R ont été remplies avec succès !' }));
+    } catch(err) {
+      output.setContent(JSON.stringify({ status: 'error', message: err.toString() }));
+    }
+    return output;
+  }
+
   if (action === 'getData') {
     try {
-      var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+      var ss = getSpreadsheet();
       var result = {};
       var cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - 30); 
@@ -622,6 +644,13 @@ function extendVentesFormulas() {
 
 function onOpen(e) {
   try {
+    var ui = SpreadsheetApp.getUi();
+    ui.createMenu('🧁 Délices de Laura')
+      .addItem('⚡ Remplir toutes les colonnes (M à R)', 'remplirToutesLesLignesVentes')
+      .addItem('🔄 Actualiser les TCD', 'refreshPivotTables')
+      .addToUi();
+  } catch(err) {}
+  try {
     remplirToutesLesLignesVentes();
     refreshPivotTables();
   } catch(err) {}
@@ -695,7 +724,7 @@ function getCatalogueMap(ss, remoteCatalogue) {
 // ║  Semaine, Mois, Année et Canal sur TOUTES les lignes de Ventes   ║
 // ╚══════════════════════════════════════════════════════════════════╝
 function remplirToutesLesLignesVentes() {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var ss = getSpreadsheet();
   var sheet = ss.getSheetByName('Ventes');
   if (!sheet) return;
 
@@ -705,10 +734,7 @@ function remplirToutesLesLignesVentes() {
   // 1. En-têtes (colonnes M à R : 13 à 18)
   var headers = ['Clé', 'Catégorie', 'Semaine', 'Mois', 'Année', 'Canal'];
   for (var h = 0; h < headers.length; h++) {
-    var cell = sheet.getRange(1, 13 + h);
-    if (!cell.getValue()) {
-      cell.setValue(headers[h]).setFontWeight('bold').setBackground('#f9a8d4');
-    }
+    sheet.getRange(1, 13 + h).setValue(headers[h]).setFontWeight('bold').setBackground('#f9a8d4');
   }
 
   // 2. Dictionnaire du catalogue
@@ -718,6 +744,8 @@ function remplirToutesLesLignesVentes() {
   var numRows = lastRow - 1;
   var range = sheet.getRange(2, 1, numRows, 18);
   var values = range.getValues();
+
+  var frenchMonths = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
   for (var i = 0; i < values.length; i++) {
     var row = values[i];
@@ -764,20 +792,29 @@ function remplirToutesLesLignesVentes() {
 
     // Catégorie
     var artClean = String(artName || '').trim().toLowerCase();
-    values[i][13] = catByProd[artClean] || values[i][13] || '';
+    var catFound = catByProd[artClean] || '';
+    if (!catFound) {
+      for (var k in catByProd) {
+        if (artClean.indexOf(k) !== -1 || k.indexOf(artClean) !== -1) {
+          catFound = catByProd[k];
+          break;
+        }
+      }
+    }
+    values[i][13] = catFound || values[i][13] || 'Autre';
 
     // Semaine, Mois, Année
     if (dObj && !isNaN(dObj.getTime())) {
       values[i][14] = getIsoWeekNumber(dObj);
-      var monthNames = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-      values[i][15] = String(dObj.getMonth() + 1).padStart(2, '0') + '-' + monthNames[dObj.getMonth()];
+      var mNum = String(dObj.getMonth() + 1).padStart(2, '0');
+      var mName = frenchMonths[dObj.getMonth()];
+      values[i][15] = mNum + ' ' + mName; // Produit "10 octobre" exactement comme sur votre capture !
       values[i][16] = dObj.getFullYear();
     }
 
-    // Canal
-    if (!values[i][17]) {
-      values[i][17] = 'Boutique';
-    }
+    // Canal (colonne R : 18)
+    var currentCanal = values[i][17];
+    values[i][17] = (currentCanal && String(currentCanal).trim() !== '') ? currentCanal : 'Boutique';
   }
 
   // Écrire les colonnes M à R d'un coup (ultra-rapide)
