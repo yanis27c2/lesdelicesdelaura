@@ -12,8 +12,15 @@ export default function Cart({ items, updateQuantity, clearCart, onCheckout }) {
     const [checkoutMode, setCheckoutMode] = useState(false);
     const [discount, setDiscount] = useState(0);
     const [amountGiven, setAmountGiven] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState('especes');
     const [channel, setChannel] = useState('Boutique'); // 'Boutique' par défaut
+
+    const handleSelectChannel = (newChannel) => {
+        setChannel(newChannel);
+        if (newChannel === 'Site') {
+            setPaymentMethod('cb');
+            setAmountGiven('');
+        }
+    };
 
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const discountAmount = subtotal * (discount / 100);
@@ -140,12 +147,12 @@ export default function Cart({ items, updateQuantity, clearCart, onCheckout }) {
                         </div>
                         <div 
                             className="channel-switch"
-                            onClick={() => setChannel(prev => prev === 'Boutique' ? 'Site' : 'Boutique')}
+                            onClick={() => handleSelectChannel(channel === 'Boutique' ? 'Site' : 'Boutique')}
                         >
                             <button
                                 type="button"
                                 className={`channel-pill boutique ${channel === 'Boutique' ? 'active' : ''}`}
-                                onClick={(e) => { e.stopPropagation(); setChannel('Boutique'); }}
+                                onClick={(e) => { e.stopPropagation(); handleSelectChannel('Boutique'); }}
                             >
                                 <Store size={18} />
                                 <span>Boutique</span>
@@ -153,7 +160,7 @@ export default function Cart({ items, updateQuantity, clearCart, onCheckout }) {
                             <button
                                 type="button"
                                 className={`channel-pill site ${channel === 'Site' ? 'active' : ''}`}
-                                onClick={(e) => { e.stopPropagation(); setChannel('Site'); }}
+                                onClick={(e) => { e.stopPropagation(); handleSelectChannel('Site'); }}
                             >
                                 <Globe size={18} />
                                 <span>Site</span>
