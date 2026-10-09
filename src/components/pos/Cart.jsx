@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ShoppingBag, Trash2, Plus, Minus, CreditCard, ChevronLeft, Percent, Printer, Banknote, Smartphone, Store, Globe } from 'lucide-react';
 import './Cart.css';
 
@@ -14,6 +14,14 @@ export default function Cart({ items, updateQuantity, clearCart, onCheckout }) {
     const [amountGiven, setAmountGiven] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('especes');
     const [channel, setChannel] = useState('Boutique'); // 'Boutique' par défaut
+
+    // Verrouillage automatique : si canal Site, le paiement est STRICTEMENT CB
+    useEffect(() => {
+        if (channel === 'Site') {
+            setPaymentMethod('cb');
+            setAmountGiven('');
+        }
+    }, [channel]);
 
     const handleSelectChannel = (newChannel) => {
         setChannel(newChannel);
@@ -102,35 +110,58 @@ export default function Cart({ items, updateQuantity, clearCart, onCheckout }) {
 
                     {/* ── Payment Method ── */}
                     <div className="invoice-section">
-                        <h3 style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', marginBottom: '12px' }}>Moyen de paiement</h3>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <h3 style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', margin: 0 }}>Moyen de paiement</h3>
+                            {channel === 'Site' && (
+                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4f46e5', backgroundColor: '#eef2ff', padding: '3px 8px', borderRadius: '10px' }}>
+                                    💳 CB obligatoire pour commande Site
+                                </span>
+                            )}
+                        </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                             {PAYMENT_METHODS.map(m => {
                                 const isLocked = channel === 'Site' && m.id !== 'cb';
+                                const isSelected = paymentMethod === m.id;
                                 return (
                                     <button
                                         key={m.id}
+                                        type="button"
                                         disabled={isLocked}
-                                        onClick={() => !isLocked && setPaymentMethod(m.id)}
+                                        onClick={() => {
+                                            if (!isLocked) {
+                                                setPaymentMethod(m.id);
+                                            }
+                                        }}
                                         title={isLocked ? 'Paiement en ligne par CB uniquement' : ''}
                                         style={{
                                             padding: '14px 8px',
                                             borderRadius: '12px',
-                                            border: `2px solid ${paymentMethod === m.id ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                                            backgroundColor: paymentMethod === m.id ? 'var(--color-primary-light)' : 'var(--color-surface)',
-                                            color: paymentMethod === m.id ? 'var(--color-primary-dark)' : 'var(--color-text-muted)',
+                                            border: `2px solid ${isSelected ? (channel === 'Site' ? '#4f46e5' : 'var(--color-primary)') : 'var(--color-border)'}`,
+                                            backgroundColor: isSelected ? (channel === 'Site' ? '#eef2ff' : 'var(--color-primary-light)') : 'var(--color-surface)',
+                                            color: isSelected ? (channel === 'Site' ? '#4f46e5' : 'var(--color-primary-dark)') : 'var(--color-text-muted)',
                                             fontWeight: 700,
                                             fontSize: '0.95rem',
                                             cursor: isLocked ? 'not-allowed' : 'pointer',
-                                            opacity: isLocked ? 0.45 : 1,
+                                            opacity: isLocked ? 0.35 : 1,
                                             display: 'flex',
                                             flexDirection: 'column',
                                             alignItems: 'center',
-                                            gap: '6px',
+                                            gap: '4px',
                                             transition: 'all 0.15s'
                                         }}
                                     >
                                         <span style={{ fontSize: '1.5rem' }}>{m.icon}</span>
-                                        {m.label}
+                                        <span>{m.label}</span>
+                                        {isLocked && (
+                                            <span style={{ fontSize: '0.65rem', fontWeight: 600, color: '#ef4444' }}>
+                                                Non dispo
+                                            </span>
+                                        )}
+                                        {channel === 'Site' && m.id === 'cb' && (
+                                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#4f46e5' }}>
+                                                ✓ Sélectionné
+                                            </span>
+                                        )}
                                     </button>
                                 );
                             })}
@@ -152,14 +183,11 @@ export default function Cart({ items, updateQuantity, clearCart, onCheckout }) {
                                 {channel}
                             </span>
                         </div>
-                        <div 
-                            className="channel-switch"
-                            onClick={() => handleSelectChannel(channel === 'Boutique' ? 'Site' : 'Boutique')}
-                        >
+                        <div className="channel-switch">
                             <button
                                 type="button"
                                 className={`channel-pill boutique ${channel === 'Boutique' ? 'active' : ''}`}
-                                onClick={(e) => { e.stopPropagation(); handleSelectChannel('Boutique'); }}
+                                onClick={() => handleSelectChannel('Boutique')}
                             >
                                 <Store size={18} />
                                 <span>Boutique</span>
@@ -167,7 +195,7 @@ export default function Cart({ items, updateQuantity, clearCart, onCheckout }) {
                             <button
                                 type="button"
                                 className={`channel-pill site ${channel === 'Site' ? 'active' : ''}`}
-                                onClick={(e) => { e.stopPropagation(); handleSelectChannel('Site'); }}
+                                onClick={() => handleSelectChannel('Site')}
                             >
                                 <Globe size={18} />
                                 <span>Site</span>
