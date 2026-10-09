@@ -444,7 +444,14 @@ export async function syncFromCloud(saveOrderFn = saveOrder, saveDevisFn = saveD
 
                         // Mapper le nom de catégorie vers un id local
                         const catName = String(remoteProd.categoryName || '').toLowerCase().trim();
-                        const categoryId = catNameToId[catName] || localP?.categoryId || 'cat1';
+                        let categoryId = catNameToId[catName] || localP?.categoryId;
+                        if (!categoryId && catName) {
+                            categoryId = `cat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+                            const newCat = { id: categoryId, name: remoteProd.categoryName.trim(), icon: '🍰' };
+                            await saveCategory(newCat);
+                            catNameToId[catName] = categoryId;
+                        }
+                        if (!categoryId) categoryId = 'cat1';
 
                         const product = {
                             id: remoteProd.id,

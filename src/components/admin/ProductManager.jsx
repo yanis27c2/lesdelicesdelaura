@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Package, X, PackagePlus, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { getProducts, getCategories, deleteProduct, saveProduct } from '../../db/indexedDB';
+import { getProducts, getCategories, deleteProduct, saveProduct, saveCategory } from '../../db/indexedDB';
 import './ProductManager.css';
 
 export default function ProductManager() {
@@ -13,6 +13,9 @@ export default function ProductManager() {
 
     // Form State
     const [formData, setFormData] = useState({ name: '', price: '', categoryId: '', stock: '', alertThreshold: '', color: '#fbcfe8' });
+    const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [newCategoryIcon, setNewCategoryIcon] = useState('🍰');
 
     // Restock State
     const [qtyInputs, setQtyInputs] = useState({});
@@ -54,6 +57,10 @@ export default function ProductManager() {
     };
 
     const handleOpenModal = (product = null) => {
+        setIsCreatingCategory(false);
+        setNewCategoryName('');
+        setNewCategoryIcon('🍰');
+
         if (product) {
             setEditingProduct(product);
             setFormData({
@@ -66,7 +73,11 @@ export default function ProductManager() {
             });
         } else {
             setEditingProduct(null);
-            setFormData({ name: '', price: '', categoryId: categories[0]?.id || '', stock: '', alertThreshold: '', color: '#fbcfe8' });
+            const defaultCatId = categories[0]?.id || '';
+            if (categories.length === 0) {
+                setIsCreatingCategory(true);
+            }
+            setFormData({ name: '', price: '', categoryId: defaultCatId, stock: '', alertThreshold: '', color: '#fbcfe8' });
         }
         setIsModalOpen(true);
     };
@@ -74,16 +85,47 @@ export default function ProductManager() {
     const handleCloseModal = () => {
         setIsModalOpen(false);
         setEditingProduct(null);
+        setIsCreatingCategory(false);
+        setNewCategoryName('');
     };
 
     const handleSave = async (e) => {
         e.preventDefault();
+
+        let targetCategoryId = formData.categoryId;
+
+        if (isCreatingCategory) {
+            const cleanName = newCategoryName.trim();
+            if (!cleanName) {
+                alert('Veuillez saisir un nom pour la nouvelle catégorie.');
+                return;
+            }
+
+            // Vérifier si la catégorie existe déjà (insensible à la casse)
+            const existingCat = categories.find(c => c.name.trim().toLowerCase() === cleanName.toLowerCase());
+            if (existingCat) {
+                targetCategoryId = existingCat.id;
+            } else {
+                const newCat = {
+                    id: `cat_${Date.now()}`,
+                    name: cleanName,
+                    icon: newCategoryIcon || '🍰'
+                };
+                await saveCategory(newCat);
+                targetCategoryId = newCat.id;
+            }
+        } else {
+            if (!targetCategoryId && categories.length > 0) {
+                targetCategoryId = categories[0].id;
+            }
+        }
+
         const newStockVal = parseInt(formData.stock) || 0;
         const productToSave = {
             id: editingProduct ? editingProduct.id : `prod_${Date.now()}`,
             name: formData.name,
-            price: parseFloat(formData.price),
-            categoryId: formData.categoryId,
+            price: parseFloat(formData.price) || 0,
+            categoryId: targetCategoryId,
             stock: newStockVal,
             alertThreshold: parseInt(formData.alertThreshold) || 0,
             color: formData.color
@@ -98,7 +140,7 @@ export default function ProductManager() {
             await logStockMovement(productToSave.id, productToSave.name, diff, newStockVal, 'manuel', 'admin_edit');
         }
 
-        loadData();
+        await loadData();
         window.dispatchEvent(new Event('catalogUpdated'));
         handleCloseModal();
     };
@@ -291,15 +333,87 @@ export default function ProductManager() {
                             </div>
 
                             <div className="form-row">
-                                <div className="form-group">
-                                    <label>Catégorie</label>
-                                    <select required value={formData.categoryId} onChange={e => setFormData({ ...formData, categoryId: e.target.value })}>
-                                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
+                                <div className="form-group" style={{ flex: 1.2 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                        <label style={{ margin: 0 }}>Catégorie</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsCreatingCategory(!isCreatingCategory);
+                                                setNewCategoryName('');
+                                            }}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: 'var(--color-primary-dark, #db2777)',
+                                                fontSize: '0.82rem',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                padding: '2px 4px',
+                                                textDecoration: 'underline'
+                                            }}
+                                        >
+                                            {isCreatingCategory ? '← Choisir une existante' : '+ Nouvelle catégorie'}
+                                        </button>
+                                    </div>
+
+                                    {!isCreatingCategory ? (
+                                        <select
+                                            required={!isCreatingCategory}
+                                            value={formData.categoryId}
+                                            onChange={e => {
+                                                if (e.target.value === '__NEW__') {
+                                                    setIsCreatingCategory(true);
+                                                    setNewCategoryName('');
+                                                } else {
+                                                    setFormData({ ...formData, categoryId: e.target.value });
+                                                }
+                                            }}
+                                        >
+                                            {categories.map(c => (
+                                                <option key={c.id} value={c.id}>
+                                                    {c.icon ? `${c.icon} ` : ''}{c.name}
+                                                </option>
+                                            ))}
+                                            <option value="__NEW__">➕ Créer une nouvelle catégorie...</option>
+                                        </select>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <input
+                                                type="text"
+                                                autoFocus
+                                                required={isCreatingCategory}
+                                                placeholder="Ex: Viennoiseries, Boissons..."
+                                                value={newCategoryName}
+                                                onChange={e => setNewCategoryName(e.target.value)}
+                                            />
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>Icône :</span>
+                                                {['🍰', '🎂', '🍪', '🥐', '🥖', '🧁', '🥪', '☕', '🏷️'].map(emoji => (
+                                                    <button
+                                                        key={emoji}
+                                                        type="button"
+                                                        onClick={() => setNewCategoryIcon(emoji)}
+                                                        style={{
+                                                            background: newCategoryIcon === emoji ? '#fce7f3' : 'transparent',
+                                                            border: newCategoryIcon === emoji ? '1px solid #ec4899' : '1px solid transparent',
+                                                            borderRadius: '6px',
+                                                            fontSize: '1.1rem',
+                                                            cursor: 'pointer',
+                                                            padding: '2px 4px',
+                                                            lineHeight: 1
+                                                        }}
+                                                    >
+                                                        {emoji}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="form-group">
+                                <div className="form-group" style={{ flex: 1 }}>
                                     <label>Couleur</label>
-                                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                                         {['#fbcfe8', '#fed7aa', '#fde047', '#dcfce7', '#bfdbfe', '#e9d5ff', '#f3f4f6'].map(col => (
                                             <div
                                                 key={col}
