@@ -150,7 +150,8 @@ export default function SyncManager({ isOnline }) {
                 const heureStr = isValidDate ? `${hours}:${minutes}:${seconds}` : '';
                 const cle = `${v.id}${dateStr}${heureStr}`;
                 const semaine = isValidDate ? getIsoWeek(ts) : '';
-                const mois = isValidDate ? (ts.getMonth() + 1) : '';
+                const monthNames = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+                const mois = isValidDate ? (`${month}-${monthNames[ts.getMonth()]}`) : '';
                 const annee = isValidDate ? year : '';
                 const canal = v.channel || 'Boutique';
 

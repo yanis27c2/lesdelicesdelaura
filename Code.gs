@@ -49,7 +49,8 @@ function doPost(e) {
         // Formules intégrées directement en valeurs :
         var cle = String(v.id) + dateStr + heureStr; // Concaténation exacte A & B & C
         var semaine = ts && !isNaN(ts.getTime()) ? getIsoWeekNumber(ts) : '';
-        var mois = ts && !isNaN(ts.getTime()) ? (ts.getMonth() + 1) : '';
+        var monthNames = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+        var mois = ts && !isNaN(ts.getTime()) ? (String(ts.getMonth() + 1).padStart(2, '0') + '-' + monthNames[ts.getMonth()]) : '';
         var annee = ts && !isNaN(ts.getTime()) ? ts.getFullYear() : '';
         var canal = v.channel || 'Boutique';
 
@@ -768,7 +769,8 @@ function remplirToutesLesLignesVentes() {
     // Semaine, Mois, Année
     if (dObj && !isNaN(dObj.getTime())) {
       values[i][14] = getIsoWeekNumber(dObj);
-      values[i][15] = dObj.getMonth() + 1;
+      var monthNames = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+      values[i][15] = String(dObj.getMonth() + 1).padStart(2, '0') + '-' + monthNames[dObj.getMonth()];
       values[i][16] = dObj.getFullYear();
     }
 
