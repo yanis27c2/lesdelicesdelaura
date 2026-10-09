@@ -44,14 +44,21 @@ function doPost(e) {
         }
       }
 
+      var maxId = getMaxSaleId(sheetVentes);
+
       data.ventes.forEach(function(v) {
-        // Skip if this sale ID already exists in the sheet
-        if (rowExistsWithId(sheetVentes, v.id)) return;
+        var saleId = v.id;
+        // Si l'ID local entre en collision avec une ancienne vente historique (ex: 1, 2, 3...)
+        // ou si l'ID est absent, on lui attribue automatiquement le prochain ID séquentiel (ex: 1523, 1524...)
+        if (!saleId || rowExistsWithId(sheetVentes, saleId)) {
+          maxId++;
+          saleId = maxId;
+        }
 
         var ts = v.timestamp ? new Date(v.timestamp) : null;
         var dateStr = v.date || (ts && !isNaN(ts.getTime()) ? Utilities.formatDate(ts, 'Europe/Paris', 'dd/MM/yyyy') : '');
         var heureStr = v.heure || (ts && !isNaN(ts.getTime()) ? Utilities.formatDate(ts, 'Europe/Paris', 'HH:mm:ss') : '');
-        var cle = v.cle || (String(v.id) + dateStr + heureStr);
+        var cle = String(saleId) + dateStr + heureStr;
         var semaine = v.semaine !== undefined && v.semaine !== '' ? v.semaine : (ts && !isNaN(ts.getTime()) ? getIsoWeekNumber(ts) : '');
         var mois = v.mois || '';
         var annee = v.annee || (ts && !isNaN(ts.getTime()) ? ts.getFullYear() : '');
@@ -70,10 +77,10 @@ function doPost(e) {
 
             // Pure Base de Données : insertion directe des 18 colonnes préparées par l'appli
             sheetVentes.appendRow([
-              v.id, dateStr, heureStr, artName, q, pu, subtotal,
+              saleId, dateStr, heureStr, artName, q, pu, subtotal,
               v.total || 0, v.discount || 0,
               pMethod, v.amountGiven || 0, v.change || 0,
-              item.cle || cle,
+              cle,
               catName,
               item.semaine !== undefined && item.semaine !== '' ? item.semaine : semaine,
               item.mois || mois,
@@ -83,7 +90,7 @@ function doPost(e) {
           });
         } else {
           sheetVentes.appendRow([
-            v.id, dateStr, heureStr, '(non détaillé)', 1, 0, 0,
+            saleId, dateStr, heureStr, '(non détaillé)', 1, 0, 0,
             v.total || 0, v.discount || 0,
             pMethod, v.amountGiven || 0, v.change || 0,
             cle, '', semaine, mois, annee, canal
@@ -579,6 +586,27 @@ function rowExistsWithId(sheet, id) {
     if (String(ids[i][0]) === strId) return true;
   }
   return false;
+}
+
+// Trouve le plus grand ID numérique présent dans la colonne A de la feuille
+function getMaxSaleId(sheet) {
+  if (!sheet) return 0;
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return 0;
+  var colA = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  var max = 0;
+  for (var i = 0; i < colA.length; i++) {
+    var raw = colA[i][0];
+    if (typeof raw === 'number' && raw > max && raw < 1000000000) {
+      max = raw;
+    } else {
+      var parsed = parseInt(String(raw), 10);
+      if (!isNaN(parsed) && parsed > max && parsed < 1000000000) {
+        max = parsed;
+      }
+    }
+  }
+  return max;
 }
 
 // Calcule le numéro de semaine ISO-8601 (1 à 53)
