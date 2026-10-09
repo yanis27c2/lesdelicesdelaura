@@ -299,6 +299,9 @@ function doPost(e) {
       results.customers = data.customers.length + ' clients mis à jour';
     }
 
+    // Rafraîchissement automatique des tableaux croisés dynamiques
+    try { refreshPivotTables(); } catch(e) {}
+
     output.setContent(JSON.stringify({ status: 'success', results: results }));
 
   } catch(error) {
@@ -610,3 +613,93 @@ function getIsoWeekNumber(d) {
   }
   return 1 + Math.ceil((firstThursday - target) / 604800000);
 }
+
+// Force tous les TCD du classeur à se rafraîchir en réinitialisant leur plage source.
+function refreshPivotTables() {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheets = ss.getSheets();
+    sheets.forEach(function(sheet) {
+      var pivotTables = sheet.getPivotTables();
+      pivotTables.forEach(function(pt) {
+        var range = pt.getSourceDataRange();
+        pt.setSourceDataRange(range);
+      });
+    });
+    SpreadsheetApp.flush();
+  } catch(e) {
+    Logger.log('Erreur refreshPivotTables: ' + e.toString());
+  }
+}
+
+// Optionnel / Rétro-compatibilité : étire les formules si besoin
+function extendVentesFormulas() {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Ventes');
+    if (!sheet) return;
+
+    var maxRows = sheet.getMaxRows();
+    var colAValues = sheet.getRange(1, 1, maxRows, 1).getValues();
+    var lastRow = 0;
+    for (var r = colAValues.length - 1; r >= 0; r--) {
+      if (colAValues[r][0] !== '' && colAValues[r][0] !== null) {
+        lastRow = r + 1;
+        break;
+      }
+    }
+
+    if (lastRow < 3) return;
+
+    var sourceRange = sheet.getRange(2, 13, 1, 5);
+    var targetRange = sheet.getRange(3, 13, lastRow - 2, 5);
+    sourceRange.copyTo(targetRange, { contentsOnly: false });
+  } catch(e) {
+    Logger.log('Erreur extendVentesFormulas: ' + e.toString());
+  }
+}
+
+function onOpen(e) {
+  extendVentesFormulas();
+  refreshPivotTables();
+}
+
+function onCheckboxEdit(e) {
+  try {
+    var range = e.range;
+    var sheet = range.getSheet();
+
+    if (sheet.getName() === 'Analyse +' &&
+        range.getA1Notation() === 'A7' &&
+        e.value === 'TRUE') {
+
+      extendVentesFormulas();
+      refreshPivotTables();
+
+      range.setValue(false);
+    }
+  } catch (err) {
+    Logger.log('Erreur onCheckboxEdit: ' + err.toString());
+  }
+}
+
+function installRefreshTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(function(t) {
+    var fn = t.getHandlerFunction();
+    if (fn === 'refreshPivotTables' || fn === 'refreshAll') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  ScriptApp.newTrigger('refreshAll')
+    .timeBased()
+    .everyMinutes(10)
+    .create();
+}
+
+function refreshAll() {
+  extendVentesFormulas();
+  refreshPivotTables();
+}
+
