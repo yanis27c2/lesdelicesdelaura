@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Package, X, PackagePlus, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package, X } from 'lucide-react';
 import { getProducts, getCategories, deleteProduct, saveProduct, saveCategory } from '../../db/indexedDB';
+import { getInitialColor } from '../../data/productColors';
 import './ProductManager.css';
 
 export default function ProductManager() {
@@ -17,16 +18,23 @@ export default function ProductManager() {
     const [newCategoryName, setNewCategoryName] = useState('');
     const [newCategoryIcon, setNewCategoryIcon] = useState('🍰');
 
-    // Restock State
-    const [qtyInputs, setQtyInputs] = useState({});
-    const [dateInputs, setDateInputs] = useState({});
-    const today = new Date().toISOString().slice(0, 10);
-
     const loadData = async () => {
         setLoading(true);
         try {
             const p = await getProducts();
             p.sort((a, b) => a.name.localeCompare(b.name));
+
+            // Restaurer les couleurs d'origine pour les cartes de produits si nécessaire
+            for (const prod of p) {
+                if (!prod.color || prod.color === '#fbcfe8') {
+                    const origColor = getInitialColor(prod);
+                    if (origColor !== prod.color) {
+                        prod.color = origColor;
+                        await saveProduct(prod);
+                    }
+                }
+            }
+
             const c = await getCategories();
             setProducts(p);
             setCategories(c);
@@ -69,7 +77,7 @@ export default function ProductManager() {
                 categoryId: product.categoryId,
                 stock: product.stock !== undefined ? product.stock : 0,
                 alertThreshold: product.alertThreshold !== undefined ? product.alertThreshold : 0,
-                color: product.color || '#fbcfe8'
+                color: product.color && product.color !== '#fbcfe8' ? product.color : getInitialColor(product)
             });
         } else {
             setEditingProduct(null);
@@ -166,35 +174,18 @@ export default function ProductManager() {
         }
     };
 
-    const handleCreateReassort = async (product) => {
-        const qty = parseInt(qtyInputs[product.id]) || 0;
-        const prodDate = dateInputs[product.id] || today;
-        if (qty <= 0) return alert('Veuillez saisir une quantité supérieure à 0.');
+    const handleQuickStockChange = async (product, newStock) => {
+        const val = parseInt(newStock) || 0;
+        const productToSave = { ...product, stock: val };
+        await saveProduct(productToSave);
 
-        const orderData = {
-            customerName: `Réassort Interne`,
-            customerPhone: '',
-            items: `${qty}x ${product.name}`,
-            parsedItems: [{ id: product.id, qty }],
-            totalPrice: 0,
-            deposit: 0,
-            status: 'en_attente',
-            pickupDate: '',
-            pickupTime: '',
-            productionStartDate: prodDate,
-            createdAt: new Date().toISOString(),
-            notes: 'Production pour réapprovisionnement des stocks',
-            type: 'reassort'
-        };
+        const { logStockMovement } = await import('../../db/indexedDB');
+        const diff = val - (product.stock || 0);
+        await logStockMovement(product.id, product.name, diff, val, 'manuel', 'admin_inline');
 
-        const { saveOrder } = await import('../../db/indexedDB');
-        await saveOrder(orderData);
-        setQtyInputs(prev => ({ ...prev, [product.id]: '' }));
-        setDateInputs(prev => ({ ...prev, [product.id]: '' }));
-        alert(`Ordre de réassort planifié le ${prodDate} pour ${qty}x ${product.name}. Retrouvez-le dans l'onglet Planning !`);
+        await loadData();
+        window.dispatchEvent(new Event('catalogUpdated'));
     };
-
-    const lowStockProducts = products.filter(p => typeof p.stock === 'number' && typeof p.alertThreshold === 'number' && p.stock <= p.alertThreshold);
 
     if (loading) return <div style={{ padding: 24 }}>Chargement...</div>;
 
@@ -212,51 +203,6 @@ export default function ProductManager() {
                 </div>
             </div>
 
-            {/* Alertes Stock & Réassort */}
-            <div className="reassort-section" style={{ margin: '0 24px 24px' }}>
-                <h3 className="section-title"><AlertTriangle size={18} color="#ef4444" /> Alertes Stock (Produits à refaire)</h3>
-                {lowStockProducts.length === 0 ? (
-                    <div className="planning-empty" style={{ padding: '2rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)' }}>
-                        <CheckCircle2 size={40} color="#10b981" />
-                        <p style={{ marginTop: '1rem' }}>Tous les stocks sont au-dessus de leur seuil d'alerte. Bravo !</p>
-                    </div>
-                ) : (
-                    <div className="reassort-grid">
-                        {lowStockProducts.map(p => (
-                            <div key={p.id} className="reassort-card">
-                                <div className="r-card-header">
-                                    <div className="color-swatch" style={{ backgroundColor: p.color || '#ccc', width: 16, height: 16, borderRadius: '50%' }}></div>
-                                    <strong>{p.name}</strong>
-                                </div>
-                                <div className="r-card-body">
-                                    <span>Stock: <strong style={{ color: p.stock <= 0 ? '#ef4444' : '#f59e0b' }}>{p.stock || 0}</strong></span>
-                                    <span>Seuil alerte: {p.alertThreshold || 0}</span>
-                                </div>
-                                <div className="r-card-actions" style={{ flexWrap: 'wrap', gap: '8px' }}>
-                                    <input
-                                        type="date"
-                                        value={dateInputs[p.id] || today}
-                                        onChange={e => setDateInputs({ ...dateInputs, [p.id]: e.target.value })}
-                                        style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', width: '130px' }}
-                                    />
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        placeholder="Qté"
-                                        value={qtyInputs[p.id] || ''}
-                                        onChange={e => setQtyInputs({ ...qtyInputs, [p.id]: e.target.value })}
-                                        style={{ flex: 1, minWidth: '80px' }}
-                                    />
-                                    <button className="btn-primary" onClick={() => handleCreateReassort(p)}>
-                                        <PackagePlus size={16} /> Prod
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
             <div className="products-table-container">
                 <table className="products-table">
                     <thead>
@@ -272,18 +218,49 @@ export default function ProductManager() {
                     <tbody>
                         {products.map(product => {
                             const cat = categories.find(c => c.id === product.categoryId);
+                            const cardColor = getInitialColor(product);
                             return (
                                 <tr key={product.id}>
                                     <td>
-                                        <div className="color-swatch" style={{ backgroundColor: product.color }}></div>
+                                        <div className="color-swatch" style={{ backgroundColor: cardColor }}></div>
                                     </td>
                                     <td style={{ fontWeight: 500 }}>{product.name}</td>
                                     <td style={{ color: 'var(--color-text-muted)' }}>{cat ? cat.name : 'Inconnue'}</td>
                                     <td style={{ fontWeight: 600, color: 'var(--color-primary-dark)' }}>{product.price.toFixed(2)}</td>
                                     <td>
-                                        <span className={`stock-badge ${product.stock > (product.alertThreshold || 0) ? 'ok' : product.stock > 0 ? 'low' : 'out'}`}>
-                                            {product.stock || 0}
-                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                className="inline-stock-input"
+                                                defaultValue={product.stock !== undefined ? product.stock : 0}
+                                                key={`${product.id}-${product.stock}`}
+                                                onBlur={async (e) => {
+                                                    const val = parseInt(e.target.value);
+                                                    if (!isNaN(val) && val !== (product.stock || 0)) {
+                                                        await handleQuickStockChange(product, val);
+                                                    }
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.target.blur();
+                                                    }
+                                                }}
+                                                style={{
+                                                    width: '65px',
+                                                    padding: '5px 8px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid var(--color-border)',
+                                                    fontWeight: 600,
+                                                    fontSize: '0.9rem',
+                                                    textAlign: 'center'
+                                                }}
+                                                title="Saisir directement le stock"
+                                            />
+                                            <span className={`stock-badge ${product.stock > (product.alertThreshold || 0) ? 'ok' : product.stock > 0 ? 'low' : 'out'}`}>
+                                                {product.stock > (product.alertThreshold || 0) ? 'OK' : product.stock > 0 ? 'Bas' : '0'}
+                                            </span>
+                                        </div>
                                     </td>
                                     <td>
                                         <div className="actions">

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getCategories, getProducts } from '../../db/indexedDB';
+import { getInitialColor } from '../../data/productColors';
 import './ProductGrid.css';
 
 export default function ProductGrid({ onAddToCart }) {
@@ -57,11 +58,16 @@ export default function ProductGrid({ onAddToCart }) {
                 <div className="products-grid">
                     {filteredProducts.map(product => {
                         const isOutOfStock = product.stock <= 0;
+                        const cardBg = getInitialColor(product);
                         return (
                             <button
                                 key={product.id}
                                 className={`product-card animate-slide-up ${isOutOfStock ? 'out-of-stock' : ''}`}
-                                style={{ backgroundColor: isOutOfStock ? '#f3f4f6' : product.color }}
+                                style={{
+                                    backgroundColor: cardBg,
+                                    opacity: isOutOfStock ? 0.7 : 1,
+                                    filter: isOutOfStock ? 'grayscale(25%)' : 'none'
+                                }}
                                 onClick={() => !isOutOfStock && onAddToCart(product)}
                                 disabled={isOutOfStock}
                             >

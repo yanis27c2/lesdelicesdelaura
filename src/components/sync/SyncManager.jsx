@@ -9,6 +9,7 @@ import {
     clearAllOrders, clearAllDevis, saveSale,
     getUnsyncedSales, getUnsyncedExpenses, getUnsyncedZReports, clearAllCustomers
 } from '../../db/indexedDB';
+import { getInitialColor } from '../../data/productColors';
 import './SyncManager.css';
 
 export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz9rk-6tmCsEN_QhbhBF25uRG5XKanS6vqcLBmcE1NVlEKSsEFCpVfDdY_3o6XmWrCK/exec';
@@ -461,8 +462,8 @@ export async function syncFromCloud(saveOrderFn = saveOrder, saveDevisFn = saveD
                             stock: parseInt(remoteProd.stock) || 0,
                             alertThreshold: parseInt(remoteProd.alertThreshold) || localP?.alertThreshold || 0,
                             description: remoteProd.description || localP?.description || '',
-                            // Conserver les champs visuels depuis la version locale si disponible
-                            color: localP?.color || '#fbcfe8',
+                            // Conserver les champs visuels depuis la version locale ou couleur d'origine
+                            color: (localP?.color && localP.color !== '#fbcfe8') ? localP.color : getInitialColor(remoteProd),
                             emoji: localP?.emoji || '',
                         };
                         await saveProduct(product);
