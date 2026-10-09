@@ -121,8 +121,24 @@ export default function SyncManager({ isOnline }) {
             categories.forEach(c => { catMap[c.id] = c.name; });
             const catalogue = products.map(p => ({ ...p, categoryName: catMap[p.categoryId] || p.categoryId }));
 
+            const prodCategoryMap = {};
+            products.forEach(p => {
+                const cName = catMap[p.categoryId] || '';
+                if (p.id) prodCategoryMap[String(p.id)] = cName;
+                if (p.name) prodCategoryMap[p.name.trim().toLowerCase()] = cName;
+            });
+
+            const enrichedVentes = ventes.map(v => ({
+                ...v,
+                channel: v.channel || 'Boutique',
+                items: (v.items || []).map(item => ({
+                    ...item,
+                    categoryName: item.categoryName || prodCategoryMap[String(item.id)] || prodCategoryMap[(item.name || '').trim().toLowerCase()] || catMap[item.categoryId] || ''
+                }))
+            }));
+
             const payload = {
-                ventes,
+                ventes: enrichedVentes,
                 catalogue,
                 depenses,
                 clotures,

@@ -20,34 +20,105 @@ function doPost(e) {
 
     // ---- 1. VENTES ----
     if (data.ventes && data.ventes.length > 0) {
-      var sheetVentes = getOrCreateSheet(ss, 'Ventes', [
+      var defaultHeaders = [
         'ID Vente', 'Date', 'Heure', 'Article', 'Quantité', 'Prix Unitaire (€)',
         'Sous-total Article (€)', 'Total Vente (€)', 'Remise (€)',
-        'Mode Paiement', 'Montant Donné (€)', 'Rendu (€)'
-      ]);
+        'Mode Paiement', 'Montant Donné (€)', 'Rendu (€)',
+        'Clé', 'Catégorie', 'Semaine', 'Mois', 'Année', 'Canal'
+      ];
+      var sheetVentes = getOrCreateSheet(ss, 'Ventes', defaultHeaders);
+
+      // Mapper dynamiquement les colonnes selon la 1ère ligne de la feuille
+      var currentHeaders = sheetVentes.getRange(1, 1, 1, sheetVentes.getLastColumn()).getValues()[0];
+      var colMap = {};
+      currentHeaders.forEach(function(h, idx) {
+        if (h) colMap[String(h).trim().toLowerCase()] = idx;
+      });
+
+      // Dictionnaire catalogue pour retrouver la catégorie si manquante
+      var catByProd = {};
+      if (data.catalogue && Array.isArray(data.catalogue)) {
+        data.catalogue.forEach(function(p) {
+          var cName = p.categoryName || '';
+          if (p.id) catByProd[String(p.id)] = cName;
+          if (p.name) catByProd[String(p.name).trim().toLowerCase()] = cName;
+        });
+      }
+      var sheetCatLookup = ss.getSheetByName('Catalogue');
+      if (sheetCatLookup && sheetCatLookup.getLastRow() > 1) {
+        var catSheetData = sheetCatLookup.getDataRange().getValues();
+        for (var ci = 1; ci < catSheetData.length; ci++) {
+          var pId = String(catSheetData[ci][0] || '');
+          var pName = String(catSheetData[ci][1] || '').trim().toLowerCase();
+          var pCat = String(catSheetData[ci][3] || '');
+          if (pId && !catByProd[pId]) catByProd[pId] = pCat;
+          if (pName && !catByProd[pName]) catByProd[pName] = pCat;
+        }
+      }
+
       data.ventes.forEach(function(v) {
         // Skip if this sale ID already exists in the sheet
         if (rowExistsWithId(sheetVentes, v.id)) return;
         var ts = v.timestamp ? new Date(v.timestamp) : null;
         var dateStr = ts && !isNaN(ts.getTime()) ? Utilities.formatDate(ts, 'Europe/Paris', 'dd/MM/yyyy') : '';
         var heureStr = ts && !isNaN(ts.getTime()) ? Utilities.formatDate(ts, 'Europe/Paris', 'HH:mm:ss') : '';
+        
+        // Formules intégrées directement en valeurs :
+        var cle = String(v.id) + dateStr + heureStr; // Concaténation exacte A & B & C
+        var semaine = ts && !isNaN(ts.getTime()) ? getIsoWeekNumber(ts) : '';
+        var mois = ts && !isNaN(ts.getTime()) ? (ts.getMonth() + 1) : '';
+        var annee = ts && !isNaN(ts.getTime()) ? ts.getFullYear() : '';
+        var canal = v.channel || 'Boutique';
+
+        function buildRow(item, artName, q, pu, subtotal) {
+          var catName = (item && item.categoryName) || 
+                        (item && item.id && catByProd[String(item.id)]) || 
+                        catByProd[String(artName).trim().toLowerCase()] || '';
+
+          var rowData = new Array(currentHeaders.length);
+          for (var i = 0; i < rowData.length; i++) rowData[i] = '';
+
+          function setVal(key, val) {
+            var k = key.toLowerCase();
+            for (var colKey in colMap) {
+              if (colKey.indexOf(k) !== -1 || k.indexOf(colKey) !== -1) {
+                rowData[colMap[colKey]] = val;
+                return;
+              }
+            }
+          }
+
+          setVal('id vente', v.id);
+          setVal('date', dateStr);
+          setVal('heure', heureStr);
+          setVal('article', artName);
+          setVal('quantité', q);
+          setVal('prix unitaire', pu);
+          setVal('sous-total', subtotal);
+          setVal('total vente', v.total || 0);
+          setVal('remise', v.discount || 0);
+          setVal('mode paiement', v.paymentMethod || 'Espèces');
+          setVal('montant donné', v.amountGiven || 0);
+          setVal('rendu', v.change || 0);
+          setVal('clé', cle);
+          setVal('catégorie', catName);
+          setVal('semaine', semaine);
+          setVal('mois', mois);
+          setVal('année', annee);
+          setVal('canal', canal);
+
+          return rowData;
+        }
+
         if (v.items && v.items.length > 0) {
           v.items.forEach(function(item) {
             var pu = parseFloat(item.price) || 0;
             var q  = parseInt(item.quantity) || 1;
-            sheetVentes.appendRow([
-              v.id, dateStr, heureStr, item.name, q, pu,
-              Math.round(pu * q * 100) / 100,
-              v.total || 0, v.discount || 0,
-              v.paymentMethod || 'Espèces', v.amountGiven || 0, v.change || 0
-            ]);
+            var subtotal = Math.round(pu * q * 100) / 100;
+            sheetVentes.appendRow(buildRow(item, item.name, q, pu, subtotal));
           });
         } else {
-          sheetVentes.appendRow([
-            v.id, dateStr, heureStr, '(non détaillé)', 1, 0, 0,
-            v.total || 0, v.discount || 0, v.paymentMethod || 'Espèces',
-            v.amountGiven || 0, v.change || 0
-          ]);
+          sheetVentes.appendRow(buildRow(null, '(non détaillé)', 1, 0, 0));
         }
       });
       results.ventes = data.ventes.length + ' ventes ajoutées';
@@ -478,6 +549,25 @@ function getOrCreateSheet(ss, name, headers) {
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#f9a8d4');
     try { sheet.setFrozenRows(1); } catch(e) {}
+  } else {
+    // Si la feuille existe déjà, ajouter les colonnes manquantes à la fin de la 1ère ligne
+    var lastCol = sheet.getLastColumn();
+    if (lastCol > 0) {
+      var currentHeaders = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+      var currentHeadersClean = currentHeaders.map(function(h) { return String(h).trim().toLowerCase(); });
+      var missing = [];
+      headers.forEach(function(h) {
+        var clean = String(h).trim().toLowerCase();
+        if (currentHeadersClean.indexOf(clean) === -1) {
+          missing.push(h);
+        }
+      });
+      if (missing.length > 0) {
+        var startCol = lastCol + 1;
+        sheet.getRange(1, startCol, 1, missing.length).setValues([missing]);
+        sheet.getRange(1, startCol, 1, missing.length).setFontWeight('bold').setBackground('#f9a8d4');
+      }
+    }
   }
   return sheet;
 }
@@ -505,4 +595,18 @@ function rowExistsWithId(sheet, id) {
     if (String(ids[i][0]) === strId) return true;
   }
   return false;
+}
+
+// Calcule le numéro de semaine ISO-8601 (1 à 53)
+function getIsoWeekNumber(d) {
+  if (!d || isNaN(d.getTime())) return '';
+  var target = new Date(d.valueOf());
+  var dayNr = (d.getDay() + 6) % 7; // Lundi = 0, Dimanche = 6
+  target.setDate(target.getDate() - dayNr + 3); // Jeudi de la semaine courante
+  var firstThursday = target.valueOf();
+  target.setMonth(0, 1);
+  if (target.getDay() !== 4) {
+    target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+  }
+  return 1 + Math.ceil((firstThursday - target) / 604800000);
 }
