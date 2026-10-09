@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Edit2, Trash2, Package, X } from 'lucide-react';
 import { getProducts, getCategories, deleteProduct, saveProduct, saveCategory } from '../../db/indexedDB';
 import { getInitialColor } from '../../data/productColors';
@@ -8,6 +8,7 @@ export default function ProductManager() {
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
+    const tableContainerRef = useRef(null);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState(null);
@@ -18,8 +19,11 @@ export default function ProductManager() {
     const [newCategoryName, setNewCategoryName] = useState('');
     const [newCategoryIcon, setNewCategoryIcon] = useState('🍰');
 
-    const loadData = async () => {
-        setLoading(true);
+    const loadData = async (preserveScroll = true) => {
+        const savedScroll = tableContainerRef.current ? tableContainerRef.current.scrollTop : null;
+        if (products.length === 0) {
+            setLoading(true);
+        }
         try {
             const p = await getProducts();
             p.sort((a, b) => a.name.localeCompare(b.name));
@@ -42,6 +46,13 @@ export default function ProductManager() {
             console.error(err);
         } finally {
             setLoading(false);
+            if (preserveScroll && savedScroll !== null) {
+                requestAnimationFrame(() => {
+                    if (tableContainerRef.current) {
+                        tableContainerRef.current.scrollTop = savedScroll;
+                    }
+                });
+            }
         }
     };
 
@@ -128,9 +139,10 @@ export default function ProductManager() {
             }
         }
 
+        const targetId = editingProduct ? editingProduct.id : `prod_${Date.now()}`;
         const newStockVal = parseInt(formData.stock) || 0;
         const productToSave = {
-            id: editingProduct ? editingProduct.id : `prod_${Date.now()}`,
+            id: targetId,
             name: formData.name,
             price: parseFloat(formData.price) || 0,
             categoryId: targetCategoryId,
@@ -148,9 +160,19 @@ export default function ProductManager() {
             await logStockMovement(productToSave.id, productToSave.name, diff, newStockVal, 'manuel', 'admin_edit');
         }
 
-        await loadData();
-        window.dispatchEvent(new Event('catalogUpdated'));
         handleCloseModal();
+        await loadData(false);
+        window.dispatchEvent(new Event('catalogUpdated'));
+
+        // Rester exactement au niveau de la ligne modifiée
+        setTimeout(() => {
+            const rowEl = document.getElementById(`prod-row-${targetId}`);
+            if (rowEl) {
+                rowEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                rowEl.classList.add('row-highlight');
+                setTimeout(() => rowEl.classList.remove('row-highlight'), 2000);
+            }
+        }, 60);
     };
 
     const handleReset = async () => {
@@ -183,11 +205,11 @@ export default function ProductManager() {
         const diff = val - (product.stock || 0);
         await logStockMovement(product.id, product.name, diff, val, 'manuel', 'admin_inline');
 
-        await loadData();
+        await loadData(true);
         window.dispatchEvent(new Event('catalogUpdated'));
     };
 
-    if (loading) return <div style={{ padding: 24 }}>Chargement...</div>;
+    if (loading && products.length === 0) return <div style={{ padding: 24 }}>Chargement...</div>;
 
     return (
         <div className="admin-container">
@@ -203,7 +225,7 @@ export default function ProductManager() {
                 </div>
             </div>
 
-            <div className="products-table-container">
+            <div className="products-table-container" ref={tableContainerRef}>
                 <table className="products-table">
                     <thead>
                         <tr>
@@ -220,7 +242,7 @@ export default function ProductManager() {
                             const cat = categories.find(c => c.id === product.categoryId);
                             const cardColor = getInitialColor(product);
                             return (
-                                <tr key={product.id}>
+                                <tr key={product.id} id={`prod-row-${product.id}`}>
                                     <td>
                                         <div className="color-swatch" style={{ backgroundColor: cardColor }}></div>
                                     </td>
@@ -294,18 +316,18 @@ export default function ProductManager() {
                                 <input required type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                             </div>
 
-                            <div className="form-row" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                <div className="form-group" style={{ flex: 1 }}>
-                                    <label style={{ textAlign: 'center', display: 'block' }}>Prix (€)</label>
-                                    <input style={{ textAlign: 'center' }} required type="number" step="0.01" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value })} />
+                            <div className="form-row" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                <div className="form-group" style={{ flex: 1, minWidth: 0 }}>
+                                    <label style={{ textAlign: 'center', display: 'block', fontSize: '0.85rem' }}>Prix (€)</label>
+                                    <input style={{ textAlign: 'center', width: '100%', boxSizing: 'border-box' }} required type="number" step="0.01" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value })} />
                                 </div>
-                                <div className="form-group" style={{ flex: 1 }}>
-                                    <label style={{ textAlign: 'center', display: 'block' }}>Stock en boutique</label>
-                                    <input style={{ textAlign: 'center' }} required type="number" value={formData.stock} onChange={e => setFormData({ ...formData, stock: e.target.value })} />
+                                <div className="form-group" style={{ flex: 1, minWidth: 0 }}>
+                                    <label style={{ textAlign: 'center', display: 'block', fontSize: '0.85rem' }}>Stock en boutique</label>
+                                    <input style={{ textAlign: 'center', width: '100%', boxSizing: 'border-box' }} required type="number" value={formData.stock} onChange={e => setFormData({ ...formData, stock: e.target.value })} />
                                 </div>
-                                <div className="form-group" style={{ flex: 1 }}>
-                                    <label style={{ textAlign: 'center', display: 'block' }}>Seuil minimum</label>
-                                    <input style={{ textAlign: 'center' }} required type="number" value={formData.alertThreshold} onChange={e => setFormData({ ...formData, alertThreshold: e.target.value })} />
+                                <div className="form-group" style={{ flex: 1, minWidth: 0 }}>
+                                    <label style={{ textAlign: 'center', display: 'block', fontSize: '0.85rem' }}>Seuil minimum</label>
+                                    <input style={{ textAlign: 'center', width: '100%', boxSizing: 'border-box' }} required type="number" value={formData.alertThreshold} onChange={e => setFormData({ ...formData, alertThreshold: e.target.value })} />
                                 </div>
                             </div>
 
