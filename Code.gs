@@ -28,33 +28,16 @@ function doPost(e) {
       ];
       var sheetVentes = getOrCreateSheet(ss, 'Ventes', defaultHeaders);
 
-      // Mapper dynamiquement les colonnes selon la 1ère ligne de la feuille
-      var currentHeaders = sheetVentes.getRange(1, 1, 1, sheetVentes.getLastColumn()).getValues()[0];
-      var colMap = {};
-      currentHeaders.forEach(function(h, idx) {
-        if (h) colMap[String(h).trim().toLowerCase()] = idx;
-      });
-
-      // Dictionnaire catalogue pour retrouver la catégorie si manquante
-      var catByProd = {};
-      if (data.catalogue && Array.isArray(data.catalogue)) {
-        data.catalogue.forEach(function(p) {
-          var cName = p.categoryName || '';
-          if (p.id) catByProd[String(p.id)] = cName;
-          if (p.name) catByProd[String(p.name).trim().toLowerCase()] = cName;
-        });
-      }
-      var sheetCatLookup = ss.getSheetByName('Catalogue');
-      if (sheetCatLookup && sheetCatLookup.getLastRow() > 1) {
-        var catSheetData = sheetCatLookup.getDataRange().getValues();
-        for (var ci = 1; ci < catSheetData.length; ci++) {
-          var pId = String(catSheetData[ci][0] || '');
-          var pName = String(catSheetData[ci][1] || '').trim().toLowerCase();
-          var pCat = String(catSheetData[ci][3] || '');
-          if (pId && !catByProd[pId]) catByProd[pId] = pCat;
-          if (pName && !catByProd[pName]) catByProd[pName] = pCat;
+      // S'assurer que tous les en-têtes (colonnes 1 à 18) sont bien écrits sur la ligne 1
+      for (var h = 0; h < defaultHeaders.length; h++) {
+        var headerCell = sheetVentes.getRange(1, h + 1);
+        if (!headerCell.getValue()) {
+          headerCell.setValue(defaultHeaders[h]).setFontWeight('bold').setBackground('#f9a8d4');
         }
       }
+
+      // Dictionnaire catalogue pour retrouver la catégorie si manquante
+      var catByProd = getCatalogueMap(ss, data.catalogue);
 
       data.ventes.forEach(function(v) {
         // Skip if this sale ID already exists in the sheet
@@ -70,55 +53,31 @@ function doPost(e) {
         var annee = ts && !isNaN(ts.getTime()) ? ts.getFullYear() : '';
         var canal = v.channel || 'Boutique';
 
-        function buildRow(item, artName, q, pu, subtotal) {
-          var catName = (item && item.categoryName) || 
-                        (item && item.id && catByProd[String(item.id)]) || 
-                        catByProd[String(artName).trim().toLowerCase()] || '';
-
-          var rowData = new Array(currentHeaders.length);
-          for (var i = 0; i < rowData.length; i++) rowData[i] = '';
-
-          function setVal(key, val) {
-            var k = key.toLowerCase();
-            for (var colKey in colMap) {
-              if (colKey.indexOf(k) !== -1 || k.indexOf(colKey) !== -1) {
-                rowData[colMap[colKey]] = val;
-                return;
-              }
-            }
-          }
-
-          setVal('id vente', v.id);
-          setVal('date', dateStr);
-          setVal('heure', heureStr);
-          setVal('article', artName);
-          setVal('quantité', q);
-          setVal('prix unitaire', pu);
-          setVal('sous-total', subtotal);
-          setVal('total vente', v.total || 0);
-          setVal('remise', v.discount || 0);
-          setVal('mode paiement', v.paymentMethod || 'Espèces');
-          setVal('montant donné', v.amountGiven || 0);
-          setVal('rendu', v.change || 0);
-          setVal('clé', cle);
-          setVal('catégorie', catName);
-          setVal('semaine', semaine);
-          setVal('mois', mois);
-          setVal('année', annee);
-          setVal('canal', canal);
-
-          return rowData;
-        }
-
         if (v.items && v.items.length > 0) {
           v.items.forEach(function(item) {
             var pu = parseFloat(item.price) || 0;
             var q  = parseInt(item.quantity) || 1;
             var subtotal = Math.round(pu * q * 100) / 100;
-            sheetVentes.appendRow(buildRow(item, item.name, q, pu, subtotal));
+            var artName = item.name || '';
+            var catName = item.categoryName || 
+                          (item.id && catByProd[String(item.id)]) || 
+                          catByProd[String(artName).trim().toLowerCase()] || '';
+
+            // Écriture directe et garantie des 18 colonnes (A à R)
+            sheetVentes.appendRow([
+              v.id, dateStr, heureStr, artName, q, pu, subtotal,
+              v.total || 0, v.discount || 0,
+              v.paymentMethod || 'Espèces', v.amountGiven || 0, v.change || 0,
+              cle, catName, semaine, mois, annee, canal
+            ]);
           });
         } else {
-          sheetVentes.appendRow(buildRow(null, '(non détaillé)', 1, 0, 0));
+          sheetVentes.appendRow([
+            v.id, dateStr, heureStr, '(non détaillé)', 1, 0, 0,
+            v.total || 0, v.discount || 0,
+            v.paymentMethod || 'Espèces', v.amountGiven || 0, v.change || 0,
+            cle, '', semaine, mois, annee, canal
+          ]);
         }
       });
       results.ventes = data.ventes.length + ' ventes ajoutées';
@@ -299,7 +258,8 @@ function doPost(e) {
       results.customers = data.customers.length + ' clients mis à jour';
     }
 
-    // Rafraîchissement automatique des tableaux croisés dynamiques
+    // Remplissage automatique des colonnes d'analyse et rafraîchissement des TCD
+    try { remplirToutesLesLignesVentes(); } catch(e) {}
     try { refreshPivotTables(); } catch(e) {}
 
     output.setContent(JSON.stringify({ status: 'success', results: results }));
@@ -660,8 +620,10 @@ function extendVentesFormulas() {
 }
 
 function onOpen(e) {
-  extendVentesFormulas();
-  refreshPivotTables();
+  try {
+    remplirToutesLesLignesVentes();
+    refreshPivotTables();
+  } catch(err) {}
 }
 
 function onCheckboxEdit(e) {
@@ -673,7 +635,7 @@ function onCheckboxEdit(e) {
         range.getA1Notation() === 'A7' &&
         e.value === 'TRUE') {
 
-      extendVentesFormulas();
+      remplirToutesLesLignesVentes();
       refreshPivotTables();
 
       range.setValue(false);
@@ -699,7 +661,128 @@ function installRefreshTrigger() {
 }
 
 function refreshAll() {
-  extendVentesFormulas();
+  remplirToutesLesLignesVentes();
   refreshPivotTables();
+}
+
+// ── Catalogue Lookup ──
+function getCatalogueMap(ss, remoteCatalogue) {
+  var catByProd = {};
+  if (remoteCatalogue && Array.isArray(remoteCatalogue)) {
+    remoteCatalogue.forEach(function(p) {
+      var cName = p.categoryName || '';
+      if (p.id) catByProd[String(p.id)] = cName;
+      if (p.name) catByProd[String(p.name).trim().toLowerCase()] = cName;
+    });
+  }
+  var sheetCatLookup = ss.getSheetByName('Catalogue');
+  if (sheetCatLookup && sheetCatLookup.getLastRow() > 1) {
+    var catSheetData = sheetCatLookup.getDataRange().getValues();
+    for (var ci = 1; ci < catSheetData.length; ci++) {
+      var pId = String(catSheetData[ci][0] || '');
+      var pName = String(catSheetData[ci][1] || '').trim().toLowerCase();
+      var pCat = String(catSheetData[ci][3] || '');
+      if (pId && !catByProd[pId]) catByProd[pId] = pCat;
+      if (pName && !catByProd[pName]) catByProd[pName] = pCat;
+    }
+  }
+  return catByProd;
+}
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  remplirToutesLesLignesVentes : remplit Clé, Catégorie,          ║
+// ║  Semaine, Mois, Année et Canal sur TOUTES les lignes de Ventes   ║
+// ╚══════════════════════════════════════════════════════════════════╝
+function remplirToutesLesLignesVentes() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Ventes');
+  if (!sheet) return;
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+
+  // 1. En-têtes (colonnes M à R : 13 à 18)
+  var headers = ['Clé', 'Catégorie', 'Semaine', 'Mois', 'Année', 'Canal'];
+  for (var h = 0; h < headers.length; h++) {
+    var cell = sheet.getRange(1, 13 + h);
+    if (!cell.getValue()) {
+      cell.setValue(headers[h]).setFontWeight('bold').setBackground('#f9a8d4');
+    }
+  }
+
+  // 2. Dictionnaire du catalogue
+  var catByProd = getCatalogueMap(ss);
+
+  // 3. Lire toutes les lignes (colonnes A à R)
+  var numRows = lastRow - 1;
+  var range = sheet.getRange(2, 1, numRows, 18);
+  var values = range.getValues();
+
+  for (var i = 0; i < values.length; i++) {
+    var row = values[i];
+    var idVente = row[0];
+    var rawDate = row[1];
+    var rawTime = row[2];
+    var artName = row[3];
+
+    if (!idVente && !rawDate) continue;
+
+    // Parser date
+    var dObj = null;
+    var dateStr = '';
+    var heureStr = '';
+
+    if (rawDate instanceof Date && !isNaN(rawDate.getTime())) {
+      dObj = rawDate;
+      dateStr = Utilities.formatDate(rawDate, 'Europe/Paris', 'dd/MM/yyyy');
+    } else if (typeof rawDate === 'string' && rawDate.trim() !== '') {
+      var dMatch = rawDate.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if (dMatch) {
+        dObj = new Date(parseInt(dMatch[3], 10), parseInt(dMatch[2], 10) - 1, parseInt(dMatch[1], 10));
+        dateStr = rawDate.slice(0, 10);
+      } else {
+        var parsed = new Date(rawDate);
+        if (!isNaN(parsed.getTime())) {
+          dObj = parsed;
+          dateStr = Utilities.formatDate(parsed, 'Europe/Paris', 'dd/MM/yyyy');
+        } else {
+          dateStr = String(rawDate);
+        }
+      }
+    }
+
+    // Parser heure
+    if (rawTime instanceof Date && !isNaN(rawTime.getTime())) {
+      heureStr = Utilities.formatDate(rawTime, 'Europe/Paris', 'HH:mm:ss');
+    } else if (typeof rawTime === 'string') {
+      heureStr = rawTime;
+    }
+
+    // Clé (= A & B & C)
+    values[i][12] = String(idVente || '') + dateStr + heureStr;
+
+    // Catégorie
+    var artClean = String(artName || '').trim().toLowerCase();
+    values[i][13] = catByProd[artClean] || values[i][13] || '';
+
+    // Semaine, Mois, Année
+    if (dObj && !isNaN(dObj.getTime())) {
+      values[i][14] = getIsoWeekNumber(dObj);
+      values[i][15] = dObj.getMonth() + 1;
+      values[i][16] = dObj.getFullYear();
+    }
+
+    // Canal
+    if (!values[i][17]) {
+      values[i][17] = 'Boutique';
+    }
+  }
+
+  // Écrire les colonnes M à R d'un coup (ultra-rapide)
+  var updateRange = sheet.getRange(2, 13, numRows, 6);
+  var updateData = values.map(function(r) { return r.slice(12, 18); });
+  updateRange.setValues(updateData);
+
+  SpreadsheetApp.flush();
 }
 
