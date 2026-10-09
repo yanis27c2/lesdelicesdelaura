@@ -102,10 +102,14 @@ function doPost(e) {
 
     // ---- 2. CATALOGUE & ALERTES STOCK ----
     if (data.catalogue && data.catalogue.length > 0) {
-      // a. Catalogue complet
+      // a. Catalogue complet (strictement 6 colonnes A à F)
       var sheetCat = getOrCreateSheet(ss, 'Catalogue', [
-        'ID', 'Nom', 'Prix (€)', 'Catégorie', 'Stock', 'Seuil Alerte', 'Description'
+        'ID', 'Produit', 'Prix U', 'Catégorie', 'Stock', 'Seul alerte'
       ]);
+      // Supprimer toute colonne superflue au-delà de la colonne F (ex: colonnes G, H, I, J...)
+      if (sheetCat.getLastColumn() > 6) {
+        sheetCat.deleteColumns(7, sheetCat.getLastColumn() - 6);
+      }
       var lastRowCat = sheetCat.getLastRow();
       if (lastRowCat > 1) sheetCat.deleteRows(2, lastRowCat - 1);
       
@@ -117,8 +121,15 @@ function doPost(e) {
       if (lastRowAlerts > 1) sheetAlerts.deleteRows(2, lastRowAlerts - 1);
 
       data.catalogue.forEach(function(p) {
-        // Ajout au catalogue
-        sheetCat.appendRow([p.id, p.name, p.price, p.categoryName || p.categoryId, p.stock || 0, p.alertThreshold || 0, p.description || '']);
+        // Ajout au catalogue (strictement 6 colonnes : ID, Produit, Prix U, Catégorie, Stock, Seul alerte)
+        sheetCat.appendRow([
+          p.id,
+          p.name,
+          p.price,
+          p.categoryName || p.categoryId || '',
+          p.stock || 0,
+          p.alertThreshold || 0
+        ]);
         
         // Ajout aux alertes si besoin
         var stock = parseInt(p.stock) || 0;
@@ -296,6 +307,24 @@ function doGet(e) {
   output.setMimeType(ContentService.MimeType.JSON);
 
   var action = (e && e.parameter && e.parameter.action) || 'status';
+
+  if (action === 'cleanCatalogue' || action === 'inspectHeaders') {
+    try {
+      var ss = getSpreadsheet();
+      var sheetCat = ss.getSheetByName('Catalogue');
+      var deletedCols = 0;
+      if (sheetCat && sheetCat.getLastColumn() > 6) {
+        var extra = sheetCat.getLastColumn() - 6;
+        sheetCat.deleteColumns(7, extra);
+        deletedCols = extra;
+      }
+      var finalHeaders = sheetCat && sheetCat.getLastColumn() > 0 ? sheetCat.getRange(1, 1, 1, sheetCat.getLastColumn()).getValues()[0] : [];
+      output.setContent(JSON.stringify({ status: 'ok', deletedColumns: deletedCols, headers: finalHeaders }));
+    } catch(err) {
+      output.setContent(JSON.stringify({ status: 'error', message: err.toString() }));
+    }
+    return output;
+  }
 
   if (action === 'remplir') {
     try {
@@ -540,25 +569,6 @@ function getOrCreateSheet(ss, name, headers) {
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#f9a8d4');
     try { sheet.setFrozenRows(1); } catch(e) {}
-  } else {
-    // Si la feuille existe déjà, ajouter les colonnes manquantes à la fin de la 1ère ligne
-    var lastCol = sheet.getLastColumn();
-    if (lastCol > 0) {
-      var currentHeaders = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-      var currentHeadersClean = currentHeaders.map(function(h) { return String(h).trim().toLowerCase(); });
-      var missing = [];
-      headers.forEach(function(h) {
-        var clean = String(h).trim().toLowerCase();
-        if (currentHeadersClean.indexOf(clean) === -1) {
-          missing.push(h);
-        }
-      });
-      if (missing.length > 0) {
-        var startCol = lastCol + 1;
-        sheet.getRange(1, startCol, 1, missing.length).setValues([missing]);
-        sheet.getRange(1, startCol, 1, missing.length).setFontWeight('bold').setBackground('#f9a8d4');
-      }
-    }
   }
   return sheet;
 }
