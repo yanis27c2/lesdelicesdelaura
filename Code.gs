@@ -44,23 +44,18 @@ function doPost(e) {
         }
       }
 
-      // Dictionnaire catalogue pour retrouver la catégorie si manquante
-      var catByProd = getCatalogueMap(ss, data.catalogue);
-
       data.ventes.forEach(function(v) {
         // Skip if this sale ID already exists in the sheet
         if (rowExistsWithId(sheetVentes, v.id)) return;
+
         var ts = v.timestamp ? new Date(v.timestamp) : null;
-        var dateStr = ts && !isNaN(ts.getTime()) ? Utilities.formatDate(ts, 'Europe/Paris', 'dd/MM/yyyy') : '';
-        var heureStr = ts && !isNaN(ts.getTime()) ? Utilities.formatDate(ts, 'Europe/Paris', 'HH:mm:ss') : '';
-        
-        // Formules intégrées directement en valeurs :
-        var cle = String(v.id) + dateStr + heureStr; // Concaténation exacte A & B & C
-        var semaine = ts && !isNaN(ts.getTime()) ? getIsoWeekNumber(ts) : '';
-        var monthNames = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-        var mois = ts && !isNaN(ts.getTime()) ? (String(ts.getMonth() + 1).padStart(2, '0') + '-' + monthNames[ts.getMonth()]) : '';
-        var annee = ts && !isNaN(ts.getTime()) ? ts.getFullYear() : '';
-        var canal = v.channel || 'Boutique';
+        var dateStr = v.date || (ts && !isNaN(ts.getTime()) ? Utilities.formatDate(ts, 'Europe/Paris', 'dd/MM/yyyy') : '');
+        var heureStr = v.heure || (ts && !isNaN(ts.getTime()) ? Utilities.formatDate(ts, 'Europe/Paris', 'HH:mm:ss') : '');
+        var cle = v.cle || (String(v.id) + dateStr + heureStr);
+        var semaine = v.semaine !== undefined && v.semaine !== '' ? v.semaine : (ts && !isNaN(ts.getTime()) ? getIsoWeekNumber(ts) : '');
+        var mois = v.mois || '';
+        var annee = v.annee || (ts && !isNaN(ts.getTime()) ? ts.getFullYear() : '');
+        var canal = v.canal || v.channel || 'Boutique';
 
         if (v.items && v.items.length > 0) {
           v.items.forEach(function(item) {
@@ -68,16 +63,19 @@ function doPost(e) {
             var q  = parseInt(item.quantity) || 1;
             var subtotal = Math.round(pu * q * 100) / 100;
             var artName = item.name || '';
-            var catName = item.categoryName || 
-                          (item.id && catByProd[String(item.id)]) || 
-                          catByProd[String(artName).trim().toLowerCase()] || '';
+            var catName = item.categorie || item.categoryName || '';
 
-            // Écriture directe et garantie des 18 colonnes (A à R)
+            // Pure Base de Données : insertion directe des 18 colonnes préparées par l'appli
             sheetVentes.appendRow([
               v.id, dateStr, heureStr, artName, q, pu, subtotal,
               v.total || 0, v.discount || 0,
               v.paymentMethod || 'Espèces', v.amountGiven || 0, v.change || 0,
-              cle, catName, semaine, mois, annee, canal
+              item.cle || cle,
+              catName,
+              item.semaine !== undefined && item.semaine !== '' ? item.semaine : semaine,
+              item.mois || mois,
+              item.annee || annee,
+              item.canal || canal
             ]);
           });
         } else {
@@ -90,9 +88,6 @@ function doPost(e) {
         }
       });
       results.ventes = data.ventes.length + ' ventes ajoutées';
-      try {
-        remplirToutesLesLignesVentes();
-      } catch(e) {}
     }
 
     // ---- 2. CATALOGUE & ALERTES STOCK ----
@@ -646,13 +641,9 @@ function onOpen(e) {
   try {
     var ui = SpreadsheetApp.getUi();
     ui.createMenu('🧁 Délices de Laura')
-      .addItem('⚡ Remplir toutes les colonnes (M à R)', 'remplirToutesLesLignesVentes')
+      .addItem('⚡ Remplir manuellement les colonnes (M à R)', 'remplirToutesLesLignesVentes')
       .addItem('🔄 Actualiser les TCD', 'refreshPivotTables')
       .addToUi();
-  } catch(err) {}
-  try {
-    remplirToutesLesLignesVentes();
-    refreshPivotTables();
   } catch(err) {}
 }
 

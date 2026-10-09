@@ -150,8 +150,8 @@ export default function SyncManager({ isOnline }) {
                 const heureStr = isValidDate ? `${hours}:${minutes}:${seconds}` : '';
                 const cle = `${v.id}${dateStr}${heureStr}`;
                 const semaine = isValidDate ? getIsoWeek(ts) : '';
-                const monthNames = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-                const mois = isValidDate ? (`${month}-${monthNames[ts.getMonth()]}`) : '';
+                const frenchMonths = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+                const mois = isValidDate ? (`${month} ${frenchMonths[ts.getMonth()]}`) : '';
                 const annee = isValidDate ? year : '';
                 const canal = v.channel || 'Boutique';
 
@@ -166,7 +166,7 @@ export default function SyncManager({ isOnline }) {
                     canal: canal,
                     channel: canal,
                     items: (v.items || []).map(item => {
-                        const catName = item.categoryName || prodCategoryMap[String(item.id)] || prodCategoryMap[(item.name || '').trim().toLowerCase()] || catMap[item.categoryId] || '';
+                        const catName = item.categoryName || prodCategoryMap[String(item.id)] || prodCategoryMap[(item.name || '').trim().toLowerCase()] || catMap[item.categoryId] || 'Autre';
                         return {
                             ...item,
                             categoryName: catName,
