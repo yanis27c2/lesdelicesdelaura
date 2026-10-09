@@ -12,6 +12,7 @@ export default function Cart({ items, updateQuantity, clearCart, onCheckout }) {
     const [checkoutMode, setCheckoutMode] = useState(false);
     const [discount, setDiscount] = useState(0);
     const [amountGiven, setAmountGiven] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('especes');
     const [channel, setChannel] = useState('Boutique'); // 'Boutique' par défaut
 
     const handleSelectChannel = (newChannel) => {
@@ -103,30 +104,36 @@ export default function Cart({ items, updateQuantity, clearCart, onCheckout }) {
                     <div className="invoice-section">
                         <h3 style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', marginBottom: '12px' }}>Moyen de paiement</h3>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                            {PAYMENT_METHODS.map(m => (
-                                <button
-                                    key={m.id}
-                                    onClick={() => setPaymentMethod(m.id)}
-                                    style={{
-                                        padding: '14px 8px',
-                                        borderRadius: '12px',
-                                        border: `2px solid ${paymentMethod === m.id ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                                        backgroundColor: paymentMethod === m.id ? 'var(--color-primary-light)' : 'var(--color-surface)',
-                                        color: paymentMethod === m.id ? 'var(--color-primary-dark)' : 'var(--color-text-muted)',
-                                        fontWeight: 700,
-                                        fontSize: '0.95rem',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        transition: 'all 0.15s'
-                                    }}
-                                >
-                                    <span style={{ fontSize: '1.5rem' }}>{m.icon}</span>
-                                    {m.label}
-                                </button>
-                            ))}
+                            {PAYMENT_METHODS.map(m => {
+                                const isLocked = channel === 'Site' && m.id !== 'cb';
+                                return (
+                                    <button
+                                        key={m.id}
+                                        disabled={isLocked}
+                                        onClick={() => !isLocked && setPaymentMethod(m.id)}
+                                        title={isLocked ? 'Paiement en ligne par CB uniquement' : ''}
+                                        style={{
+                                            padding: '14px 8px',
+                                            borderRadius: '12px',
+                                            border: `2px solid ${paymentMethod === m.id ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                                            backgroundColor: paymentMethod === m.id ? 'var(--color-primary-light)' : 'var(--color-surface)',
+                                            color: paymentMethod === m.id ? 'var(--color-primary-dark)' : 'var(--color-text-muted)',
+                                            fontWeight: 700,
+                                            fontSize: '0.95rem',
+                                            cursor: isLocked ? 'not-allowed' : 'pointer',
+                                            opacity: isLocked ? 0.45 : 1,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            transition: 'all 0.15s'
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '1.5rem' }}>{m.icon}</span>
+                                        {m.label}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
