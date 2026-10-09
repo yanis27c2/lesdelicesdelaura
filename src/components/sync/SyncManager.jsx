@@ -154,9 +154,11 @@ export default function SyncManager({ isOnline }) {
                 const mois = isValidDate ? (`${month} ${frenchMonths[ts.getMonth()]}`) : '';
                 const annee = isValidDate ? year : '';
                 const canal = v.channel || 'Boutique';
+                const pMethod = String(v.paymentMethod || 'especes').trim().toLowerCase();
 
                 return {
                     ...v,
+                    paymentMethod: pMethod,
                     date: dateStr,
                     heure: heureStr,
                     cle: cle,

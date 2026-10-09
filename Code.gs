@@ -56,6 +56,9 @@ function doPost(e) {
         var mois = v.mois || '';
         var annee = v.annee || (ts && !isNaN(ts.getTime()) ? ts.getFullYear() : '');
         var canal = v.canal || v.channel || 'Boutique';
+        var pMethod = String(v.paymentMethod || 'especes').trim().toLowerCase();
+        if (pMethod === 'carte' || pMethod === 'carte bancaire') pMethod = 'cb';
+        if (pMethod === 'espèces') pMethod = 'especes';
 
         if (v.items && v.items.length > 0) {
           v.items.forEach(function(item) {
@@ -69,7 +72,7 @@ function doPost(e) {
             sheetVentes.appendRow([
               v.id, dateStr, heureStr, artName, q, pu, subtotal,
               v.total || 0, v.discount || 0,
-              v.paymentMethod || 'Espèces', v.amountGiven || 0, v.change || 0,
+              pMethod, v.amountGiven || 0, v.change || 0,
               item.cle || cle,
               catName,
               item.semaine !== undefined && item.semaine !== '' ? item.semaine : semaine,
@@ -82,7 +85,7 @@ function doPost(e) {
           sheetVentes.appendRow([
             v.id, dateStr, heureStr, '(non détaillé)', 1, 0, 0,
             v.total || 0, v.discount || 0,
-            v.paymentMethod || 'Espèces', v.amountGiven || 0, v.change || 0,
+            pMethod, v.amountGiven || 0, v.change || 0,
             cle, '', semaine, mois, annee, canal
           ]);
         }
