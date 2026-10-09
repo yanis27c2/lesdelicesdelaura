@@ -1,25 +1,19 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 import './AppNav.css';
-import { Store, Wifi, WifiOff, LayoutGrid, Package, BarChart3, Calculator, Users, ClipboardList, FileText, CalendarClock, History } from 'lucide-react';
+import { Store, Wifi, WifiOff, LayoutGrid, Package, History } from 'lucide-react';
 import ProductGrid from './components/pos/ProductGrid';
 import Cart from './components/pos/Cart';
 import SyncManager, { syncFromCloud } from './components/sync/SyncManager';
 import ProductManager from './components/admin/ProductManager';
-import Dashboard from './components/stats/Dashboard';
-import ZReport from './components/stats/ZReport';
-import Customers from './components/customers/Customers';
-import Orders from './components/orders/Orders';
-import Devis from './components/devis/Devis';
-import Production from './components/planning/Planning';
 import SalesHistory from './components/stats/SalesHistory';
-import { saveSale, saveOrder, saveDevis } from './db/indexedDB';
+import { saveSale } from './db/indexedDB';
 import { seedDatabaseIfEmpty } from './db/initData';
 
 function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [cartItems, setCartItems] = useState([]);
-  const [currentView, setCurrentView] = useState('pos'); // pos, admin, stats, zreport
+  const [currentView, setCurrentView] = useState('pos'); // pos, admin, history
   const [isReady, setIsReady] = useState(false);
   const [renderError, setRenderError] = useState(null);
   const [syncToast, setSyncToast] = useState(null);
@@ -38,14 +32,14 @@ function App() {
 
       if (navigator.onLine) {
         console.log('Online at startup, attempting inbound sync...');
-        const result = await syncFromCloud(saveOrder, saveDevis);
+        const result = await syncFromCloud();
         if (result && result.success) {
-          const total = (result.catalogue || 0) + (result.commandes || 0) + (result.devis || 0) + (result.ventes || 0);
+          const total = (result.catalogue || 0) + (result.ventes || 0);
           if (total > 0) {
-            setSyncToast(`Cloud check: +${result.ventes || 0} ventes, +${result.commandes || 0} commandes`);
+            setSyncToast(`Cloud check: +${result.ventes || 0} ventes, +${result.catalogue || 0} produits`);
             setTimeout(() => setSyncToast(null), 5000);
             window.dispatchEvent(new Event('catalogUpdated')); // refresh POS
-            window.dispatchEvent(new Event('saleAdded'));       // refresh Stats
+            window.dispatchEvent(new Event('saleAdded'));       // refresh History
           }
         }
       }
@@ -159,21 +153,6 @@ function App() {
         <button className={`nav-item ${currentView === 'admin' ? 'active' : ''}`} onClick={() => setCurrentView('admin')}>
           <Package size={18} /> Catalogue
         </button>
-        <button className={`nav-item ${currentView === 'stats' ? 'active' : ''}`} onClick={() => setCurrentView('stats')}>
-          <BarChart3 size={18} /> Stats
-        </button>
-        <button className={`nav-item ${currentView === 'orders' ? 'active' : ''}`} onClick={() => setCurrentView('orders')}>
-          <ClipboardList size={18} /> Commandes
-        </button>
-        <button className={`nav-item ${currentView === 'production' ? 'active' : ''}`} onClick={() => setCurrentView('production')}>
-          <CalendarClock size={18} /> Production
-        </button>
-        <button className={`nav-item ${currentView === 'devis' ? 'active' : ''}`} onClick={() => setCurrentView('devis')}>
-          <FileText size={18} /> Devis
-        </button>
-        <button className={`nav-item ${currentView === 'zreport' ? 'active' : ''}`} onClick={() => setCurrentView('zreport')}>
-          <Calculator size={18} /> Clôture
-        </button>
         <button className={`nav-item ${currentView === 'history' ? 'active' : ''}`} onClick={() => setCurrentView('history')}>
           <History size={18} /> Historique
         </button>
@@ -184,12 +163,6 @@ function App() {
         <div className="pos-content">
           {currentView === 'pos' && <ProductGrid onAddToCart={addToCart} />}
           {currentView === 'admin' && <ProductManager />}
-          {currentView === 'stats' && <Dashboard />}
-          {currentView === 'zreport' && <ZReport />}
-          {currentView === 'orders' && <Orders />}
-          {currentView === 'production' && <Production />}
-          {currentView === 'devis' && <Devis />}
-          {currentView === 'customers' && <Customers />}
           {currentView === 'history' && <SalesHistory />}
         </div>
 

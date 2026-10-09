@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingBag, Trash2, Plus, Minus, CreditCard, ChevronLeft, Percent, Printer, Banknote, Smartphone } from 'lucide-react';
+import { ShoppingBag, Trash2, Plus, Minus, CreditCard, ChevronLeft, Percent, Printer, Banknote, Smartphone, Store, Globe } from 'lucide-react';
 import './Cart.css';
 
 const PAYMENT_METHODS = [
@@ -13,6 +13,7 @@ export default function Cart({ items, updateQuantity, clearCart, onCheckout }) {
     const [discount, setDiscount] = useState(0);
     const [amountGiven, setAmountGiven] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('especes');
+    const [channel, setChannel] = useState('Boutique'); // 'Boutique' par défaut
 
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const discountAmount = subtotal * (discount / 100);
@@ -34,15 +35,17 @@ export default function Cart({ items, updateQuantity, clearCart, onCheckout }) {
             total,
             amountGiven: paymentMethod === 'especes' ? (amountGivenNum || total) : total,
             change,
-            paymentMethod
+            paymentMethod,
+            channel
         });
         setCheckoutMode(false);
         setDiscount(0);
         setAmountGiven('');
         setPaymentMethod('especes');
+        setChannel('Boutique');
 
         const methodLabel = PAYMENT_METHODS.find(m => m.id === paymentMethod)?.label || paymentMethod;
-        alert(`--- TICKET DE CAISSE ---\nTotal : ${total.toFixed(2)} €\nPaiement : ${methodLabel}${paymentMethod === 'especes' ? `\nMonnaie rendue : ${change.toFixed(2)} €` : ''}\n------------------------`);
+        alert(`--- TICKET DE CAISSE ---\nCanal : ${channel}\nTotal : ${total.toFixed(2)} €\nPaiement : ${methodLabel}${paymentMethod === 'especes' ? `\nMonnaie rendue : ${change.toFixed(2)} €` : ''}\n------------------------`);
     };
 
     if (checkoutMode) {
@@ -117,6 +120,44 @@ export default function Cart({ items, updateQuantity, clearCart, onCheckout }) {
                                     {m.label}
                                 </button>
                             ))}
+                        </div>
+                    </div>
+
+                    {/* ── Interrupteur Boutique / Site ── */}
+                    <div className="invoice-section channel-switch-wrapper">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', margin: 0 }}>Canal de vente</h3>
+                            <span style={{ 
+                                fontSize: '0.8rem', 
+                                fontWeight: 700, 
+                                color: channel === 'Site' ? '#4f46e5' : 'var(--color-primary-dark)',
+                                background: channel === 'Site' ? '#eef2ff' : 'var(--color-primary-light)',
+                                padding: '2px 8px',
+                                borderRadius: '12px'
+                            }}>
+                                {channel}
+                            </span>
+                        </div>
+                        <div 
+                            className="channel-switch"
+                            onClick={() => setChannel(prev => prev === 'Boutique' ? 'Site' : 'Boutique')}
+                        >
+                            <button
+                                type="button"
+                                className={`channel-pill boutique ${channel === 'Boutique' ? 'active' : ''}`}
+                                onClick={(e) => { e.stopPropagation(); setChannel('Boutique'); }}
+                            >
+                                <Store size={18} />
+                                <span>Boutique</span>
+                            </button>
+                            <button
+                                type="button"
+                                className={`channel-pill site ${channel === 'Site' ? 'active' : ''}`}
+                                onClick={(e) => { e.stopPropagation(); setChannel('Site'); }}
+                            >
+                                <Globe size={18} />
+                                <span>Site</span>
+                            </button>
                         </div>
                     </div>
 

@@ -108,6 +108,21 @@ export default function SalesHistory() {
                                     }
                                     {PAYMENT_METHODS.find(m => m.id === sale.paymentMethod)?.label || sale.paymentMethod}
                                 </div>
+
+                                <div className="channel-badge" style={{
+                                    background: sale.channel === 'Site' ? '#eef2ff' : '#fdf2f8',
+                                    color: sale.channel === 'Site' ? '#4f46e5' : '#db2777',
+                                    border: `1px solid ${sale.channel === 'Site' ? '#c7d2fe' : '#fbcfe8'}`,
+                                    padding: '4px 10px',
+                                    borderRadius: '8px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 700,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                }}>
+                                    {sale.channel === 'Site' ? '🌐 Site' : '🏪 Boutique'}
+                                </div>
                                 
                                 <div className="sale-actions">
                                     <button className="btn-icon" onClick={() => setEditingSale(sale)} title="Modifier">
@@ -222,6 +237,42 @@ function SaleEditDrawer({ sale, onClose, onSave }) {
                                 <span>{m.label}</span>
                             </div>
                         ))}
+                    </div>
+
+                    <h4 style={{ marginTop: 24, marginBottom: 12 }}>Canal de vente</h4>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                            type="button"
+                            style={{
+                                flex: 1,
+                                padding: '10px 14px',
+                                borderRadius: '8px',
+                                border: (!editedSale.channel || editedSale.channel === 'Boutique') ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                                backgroundColor: (!editedSale.channel || editedSale.channel === 'Boutique') ? 'var(--color-primary-light)' : 'var(--color-surface)',
+                                color: (!editedSale.channel || editedSale.channel === 'Boutique') ? 'var(--color-primary-dark)' : 'inherit',
+                                fontWeight: 700,
+                                cursor: 'pointer'
+                            }}
+                            onClick={() => setEditedSale({ ...editedSale, channel: 'Boutique' })}
+                        >
+                            🏪 Boutique
+                        </button>
+                        <button
+                            type="button"
+                            style={{
+                                flex: 1,
+                                padding: '10px 14px',
+                                borderRadius: '8px',
+                                border: editedSale.channel === 'Site' ? '2px solid #4f46e5' : '1px solid var(--color-border)',
+                                backgroundColor: editedSale.channel === 'Site' ? '#eef2ff' : 'var(--color-surface)',
+                                color: editedSale.channel === 'Site' ? '#4f46e5' : 'inherit',
+                                fontWeight: 700,
+                                cursor: 'pointer'
+                            }}
+                            onClick={() => setEditedSale({ ...editedSale, channel: 'Site' })}
+                        >
+                            🌐 Site
+                        </button>
                     </div>
 
                     <div className="total-display">

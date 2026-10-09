@@ -329,7 +329,7 @@ export default function SyncManager({ isOnline }) {
     );
 }
 
-export async function syncFromCloud(saveOrderFn, saveDevisFn) {
+export async function syncFromCloud(saveOrderFn = saveOrder, saveDevisFn = saveDevis) {
     return new Promise((resolve, reject) => {
         const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
         const timeout = setTimeout(() => {
